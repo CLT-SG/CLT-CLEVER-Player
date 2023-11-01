@@ -1,0 +1,174 @@
+<html lang="us">
+
+<head>
+	<meta charset="utf-8">
+	<title>CLEVER - Media Player</title>
+	<script>
+		if (typeof module === 'object') {
+			window.module = module
+			module = undefined
+		}
+	</script>
+	<!-- Latest compiled and minified CSS -->
+	<link href="assets/css/bootstrap.min.css" rel="stylesheet" id="bootstrap-css">
+
+	<!-- Latest compiled and minified JavaScript -->
+	<script src="assets/js/jquery.min.js"></script>
+	<script src="assets/js/bootstrap.min.js"></script>
+	<style>
+		html,
+		body {
+			height: 100%;
+			width: 100%;
+			overflow: hidden;
+		}
+
+		.note {
+			text-align: center;
+			height: 80px;
+			background: -webkit-linear-gradient(left, #0072ff, #8811c5);
+			color: #fff;
+			font-weight: bold;
+			line-height: 80px;
+		}
+
+		.form-content {
+			padding: 5%;
+			border: 1px solid #ced4da;
+			margin-bottom: 2%;
+		}
+
+		.form-control {
+			border-radius: 1.5rem;
+		}
+
+		.btnSubmit {
+			border: none;
+			border-radius: 1.5rem;
+			padding: 1%;
+			width: 20%;
+			cursor: pointer;
+			background: #0062cc;
+			color: #fff;
+		}
+	</style>
+	<script>
+		var config
+		var hostserver = 'localhost'
+		var controller = hostserver + ':9600'
+		var cleverweb = hostserver + ':9100'
+		var mediaserver = hostserver + ':9200'
+		var screenserver = hostserver + ':9300'
+		var screenapi = hostserver + ':9301'
+		var remotedesktop = hostserver + ':9400'
+		if (typeof (require) != "undefined") {
+			var {
+				ipcRenderer
+			} = require("electron")
+			var remote = require('@electron/remote')
+			var win = remote.getCurrentWebContents()
+			var path = require('path')
+			var os = require('os')
+			var homedir = os.homedir()
+			var cmd = require('node-cmd') //Run cmd windows
+			config = require(homedir + '/clever-app/clever-config')
+			hostserver = config.hostserver
+			controller = config.controller
+			cleverweb = config.cleverweb
+			screenapi = config.screenapi
+			mediaserver = config.mediaserver
+			screenserver = config.screenserver
+			remotedesktop = config.remotedesktop
+		}
+	</script>
+</head>
+
+<body>
+	<div class="container register-form" style="margin-top:10%;">
+		<div class="form">
+			<div class="note">
+				<p>CLEVER - CONFIGURATION</p>
+			</div>
+
+			<div class="form-content">
+				<div class="row">
+					<div class="col-md-6">
+						<div class="form-group">
+							<div>Hostserver Address</div>
+							<input type="text" id="hostserver" class="form-control" value="" />
+						</div>
+					</div>
+					<div class="col-md-6">
+						<div class="form-group">
+							<div>Template ID</div>
+							<input type="text" id="tempid" class="form-control" value="" />
+						</div>
+					</div>
+					<div class="col-md-6">
+						<div class="form-group">
+							<div>Controller Port</div>
+							<input type="text" id="controllerport" class="form-control" value="" readonly />
+						</div>
+					</div>
+					<div class="col-md-6">
+						<div class="form-group">
+							<div>Clever Web Port</div>
+							<input type="text" id="cleverwebport" class="form-control" value="" readonly />
+						</div>
+					</div>
+					<div class="col-md-6">
+						<div class="form-group">
+							<div>Media Server Port</div>
+							<input type="text" id="mediaserverport" class="form-control" value="" readonly />
+						</div>
+					</div>
+					<div class="col-md-6">
+						<div class="form-group">
+							<div>Serial key</div>
+							<input type="text" id="serialkey" class="form-control" value="" />
+						</div>
+					</div>
+				</div>
+				<button type="button" class="btnSubmit" id="home">Home</button>
+				<button type="button" class="btnSubmit" id="save">Save</button>
+			</div>
+		</div>
+	</div>
+</body>
+<script>
+	$('#hostserver').val(config.hostserver)
+	$('#controllerport').val(config.controllerport1)
+	$('#cleverwebport').val(config.cleverwebport1)
+	$('#mediaserverport').val(config.mediaserverport1)
+	$('#tempid').val(config.tempid)
+	$('#serialkey').val(config.serialkey)
+
+	$('#save').on('click', app_config)
+	$('#home').on('click', function () {
+		appname = ipcRenderer.send('app-reload')
+		//remote.getCurrentWindow().loadURL('https://' + config.cleverweb + '/index.html')
+	})
+
+	function app_config() {
+		var hostaddress = $('#hostserver').val()
+		var tempid = $('#tempid').val()
+		var serialkey = $('#serialkey').val()
+		var argsObj = []
+		argsObj.hostaddress = hostaddress
+		argsObj.tempid = tempid
+		argsObj.serialkey = serialkey
+		if (typeof (require) != "undefined") {
+			if (/^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/
+				.test(hostaddress) ||
+				hostaddress == 'localhost' || hostaddress == '127.0.0.1') {
+				appname = ipcRenderer.send('app-configsave', argsObj)
+			} else {
+				alert('Please enter valid ip address')
+			}
+		} else {
+			console.log('electron required')
+		}
+	}
+</script>
+
+</html>
