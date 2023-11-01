@@ -198,7 +198,7 @@ try {
         })
       }
 
-      //debug mode
+      //open debugs mode 
       win.openDevTools()
       if (winpreview) {
         winpreview.openDevTools()
@@ -428,7 +428,7 @@ try {
   log.warn(ex)
   if (!fs.existsSync(appdir)) {
     log.info(appdir + ' not exist')
-    fs.mkdir(appdir, 0755, (err) => {
+    fs.mkdir(appdir, 0o755, (err) => {
       if (err) {
         log.warn(err)
       }
@@ -436,7 +436,7 @@ try {
   }
   if (!fs.existsSync(logdir)) {
     log.info(logdir + ' not exist')
-    fs.mkdir(logdir, 0755, (err) => {
+    fs.mkdir(logdir, 0o755, (err) => {
       if (err) {
         log.warn(err)
       }
