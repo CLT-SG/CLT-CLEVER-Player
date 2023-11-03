@@ -1,4 +1,4 @@
-const ping = require('ping') //your life too sick and pls go hospital to check your mental health
+const ping = require('ping') //your life too sick and pls go hospital to check your mentalhealth
 const config = require('C:/app/config')
 
 module.exports.checkhost = function() {
