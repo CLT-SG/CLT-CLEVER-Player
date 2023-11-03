@@ -59,9 +59,9 @@ try {
                 "var screenapiport = '9301'; // Screen Cast Socket API Services Port Number\r\n\r\n\r\n" +
                 "var tempid = '1'; // insert template id\r\n\r\n\r\n" +
                 "var serialkey = '1d74f3eda4dd9d1065a6216c84c27d67301779b76996dc867f4403d48f9ad91e'; // insert serial key\r\n\r\n\r\n" +
-                "/*\r\n" +
-                "DON'T CHANGE ANYTHING BELOW HERE\r\n" +
-                "*/\r\n" +
+                "/*=======================================================================================================\r\n" +
+                "DO NOT MODIFY ANYTHING BELOW THIS SECTION. IT MAY CORRUPTED THIS APPLICATION \r\n" +
+                "========================================================================================================*/\r\n" +
                 "module.exports.hostserver = hostserver; // localhost for office\r\n" +
                 "module.exports.controller = hostserver + ':' + controllerport; // Clever Web Hosting Services\r\n" +
                 "module.exports.cleverweb = hostserver + ':' + cleverwebport; // Clever Web Hosting Services\r\n" +
@@ -380,9 +380,9 @@ try {
           "var screenapiport = '9301'; // Screen Cast Socket API Services Port Number\r\n\r\n\r\n" +
           "var tempid = '" + args['tempid'] + "'; // insert template id\r\n\r\n\r\n" +
           "var serialkey = '" + args['serialkey'] + "'; // insert serial key\r\n\r\n\r\n" +
-          "/*\r\n" +
-          "DON'T CHANGE ANYTHING BELOW HERE\r\n" +
-          "*/\r\n" +
+          "/*=======================================================================================================\r\n" +
+          "DO NOT MODIFY ANYTHING BELOW THIS SECTION. THERE'S A RISK OR IT MAY CAUSE OF APPLICATION ERROR. \r\n" +
+          "========================================================================================================*/\r\n" +
           "module.exports.hostserver = hostserver; // localhost for office\r\n" +
           "module.exports.controller = hostserver + ':' + controllerport; // Clever Web Hosting Services\r\n" +
           "module.exports.cleverweb = hostserver + ':' + cleverwebport; // Clever Web Hosting Services\r\n" +
@@ -455,9 +455,9 @@ try {
           "var screenapiport = '9301'; // Screen Cast Socket API Services Port Number\r\n\r\n\r\n" +
           "var tempid = '1'; // insert template id\r\n\r\n\r\n" +
           "var serialkey = '1d74f3eda4dd9d1065a6216c84c27d67301779b76996dc867f4403d48f9ad91e'; // insert serial key\r\n\r\n\r\n" +
-          "/*\r\n" +
-          "DON'T CHANGE ANYTHING BELOW HERE\r\n" +
-          "*/\r\n" +
+          "/*=======================================================================================================\r\n" +
+          "DO NOT MODIFY ANYTHING BELOW THIS SECTION. IT MAY CORRUPTED THIS APPLICATION \r\n" +
+          "========================================================================================================*/\r\n" +
           "module.exports.hostserver = hostserver; // localhost for office\r\n" +
           "module.exports.controller = hostserver + ':' + controllerport; // Clever Web Hosting Services\r\n" +
           "module.exports.cleverweb = hostserver + ':' + cleverwebport; // Clever Web Hosting Services\r\n" +
