@@ -248,6 +248,7 @@ try {
       //})
 
       win.webContents.on('did-finish-load', () => {
+        win.webContents.transition = 'none'
         win.webContents.setVisualZoomLevelLimits(1, 1)
       })
 
