@@ -172,6 +172,7 @@ try {
         zoomFactor: 1,
         backgroundColor: "#242322",
         show: false,
+        kiosk: true,
         webPreferences: {
           webviewTag: true,
           plugins: true,
@@ -216,6 +217,8 @@ try {
 
       //APPS READY 
       win.on('ready-to-show', function () {
+        
+        win.webContents.transition = 'fade 0.1s'
         win.setBackgroundColor('#242322')
         win.show()
         win.focus()
@@ -248,7 +251,6 @@ try {
       //})
 
       win.webContents.on('did-finish-load', () => {
-        win.webContents.transition = 'none'
         win.webContents.setVisualZoomLevelLimits(1, 1)
       })
 
