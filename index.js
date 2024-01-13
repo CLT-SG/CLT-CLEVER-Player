@@ -4,31 +4,50 @@
   BrowserWindow,
   globalShortcut,
   ipcMain,
+  desktopCapturer,
+  screen,
+  Menu
 } = require('electron')
 require('@electron/remote/main').initialize()
+
+const CreateConfig = require('./create-config') // create config class
+const PortScanner = require('./port-scanner.js'); // prot scanner to find clever server
 
 const path = require('path')
 const fs = require('fs')
 const os = require('os')
 const homedir = os.homedir()
-const isReachable = require('is-reachable')
-const macaddress = require('macaddress')
-const Crypto = require('crypto')
 const si = require('systeminformation')
 const date = require('date-and-time')
 var log = require('electron-log')
+var status
 
-const appdir = path.normalize(homedir + '/clever-app')
-const logdir = path.normalize(homedir + '/clever-app/logs')
+const appdir = path.normalize(homedir + '/clever-console')
+const logdir = path.normalize(homedir + '/clever-console/logs')
 const now = new Date()
 const datelog = date.format(now, 'YYYY-MM-DD')
 log.transports.file.file = logdir + '/' + datelog + '.log'
-var pingstat
 
+
+if (!fs.existsSync(appdir)) {
+  log.info(appdir + ' not exist')
+  fs.mkdir(appdir, 0x755, (err) => {
+    if (err) {
+      log.warn(err)
+    }
+  })
+}
+if (!fs.existsSync(logdir)) {
+  log.info(logdir + ' not exist')
+  fs.mkdir(logdir, 0x755, (err) => {
+    if (err) {
+      log.warn(err)
+    }
+  })
+}
 
 //One instance process check
 let win = null
-let winpreview = null
 
 //disable security warning
 delete process.env.ELECTRON_ENABLE_SECURITY_WARNINGS
@@ -37,82 +56,20 @@ process.env.ELECTRON_DISABLE_SECURITY_WARNINGS = true
 const gotTheLock = app.requestSingleInstanceLock()
 
 try {
-  //update config-app.js to current update
-  fs.stat(appdir + '/clever-config.js', function (err, stats) {
-    if (err) {
-      log.warn(err)
-    } else {
-      var mtime = stats.mtime
-      mtime = date.format(mtime, 'YYYY-MM-DD')
-      var updateDate = date.parse('2022-12-28', 'YYYY-MM-DD')
-      updateDate = date.format(updateDate, 'YYYY-MM-DD')
-      if (mtime < updateDate) {
-        si.networkInterfaces().then(data => {
-          data.forEach((net) => {
-            if (net.operstate == 'up' && net.virtual == false) {
-              fs.writeFile(appdir + '/clever-config.js',
-                "var hostserver = '" + net.ip4 + "'; // IP or Hostname Hosted\r\n\r\n\r\n" +
-                "var controllerport = '9600'; // Clever Controller Port Number\r\n\r\n\r\n" +
-                "var cleverwebport = '9100'; // Clever Web Hosting Port Number\r\n\r\n\r\n" +
-                "var mediaserverport = '9200'; // Media Server Services Port Number\r\n\r\n\r\n" +
-                "var screenserverport = '9300'; // Screen Cast Web Hosting Services Port Number\r\n\r\n\r\n" +
-                "var screenapiport = '9301'; // Screen Cast Socket API Services Port Number\r\n\r\n\r\n" +
-                "var tempid = '1'; // insert template id\r\n\r\n\r\n" +
-                "var serialkey = '1d74f3eda4dd9d1065a6216c84c27d67301779b76996dc867f4403d48f9ad91e'; // insert serial key\r\n\r\n\r\n" +
-                "/*=======================================================================================================\r\n" +
-                "DO NOT MODIFY ANYTHING BELOW THIS SECTION. IT MAY CORRUPTED THIS APPLICATION \r\n" +
-                "========================================================================================================*/\r\n" +
-                "module.exports.hostserver = hostserver; // localhost for office\r\n" +
-                "module.exports.controller = hostserver + ':' + controllerport; // Clever Web Hosting Services\r\n" +
-                "module.exports.cleverweb = hostserver + ':' + cleverwebport; // Clever Web Hosting Services\r\n" +
-                "module.exports.mediaserver = hostserver + ':' + mediaserverport; // Media Server Services\r\n" +
-                "module.exports.screenserver = hostserver + ':' + screenserverport; // Screen Cast Web Hosting Services\r\n" +
-                "module.exports.screenapi = hostserver + ':' + screenapiport; // Screen Cast Socket API Services\r\n" +
-                "module.exports.remotedesktop = hostserver + ':9400'; // Remote Desktop Services\r\n" +
-                "module.exports.controllerport1 = controllerport;\r\n" +
-                "module.exports.cleverwebport1 = cleverwebport;\r\n" +
-                "module.exports.mediaserverport1 = mediaserverport;\r\n" +
-                "module.exports.screenserverport1 = screenserverport;\r\n" +
-                "module.exports.screenapiport1 = screenapiport;\r\n" +
-                "module.exports.timeout = 10000;\r\n" +
-                "module.exports.tempid = tempid;\r\n" +
-                "module.exports.serialkey = serialkey;\r\n",
-                function (err, data) {
-                  if (err) {
-                    log.warn(err)
-                  }
-                  log.info('Config file created.')
-                  const options = {
-                    type: 'info',
-                    buttons: ['Ok'],
-                    defaultId: 2,
-                    title: 'Setup and configuration',
-                    message: 'Config file has been updated.',
-                    detail: 'Please change hostserver at this location ' + appdir + '/clever-config.js \r\n' +
-                      '\r\n\r\n' +
-                      'Copyright © 2000-' + date.format(now, 'YYYY') + ' by Closed-loop Technology Pte Ltd. All rights reserved \r\n' +
-                      ' www.closed-loop.biz'
-                  }
-                  dialog.showMessageBox(null, options).then((data) => {
-                    if (data.response == 0) {
-                      app.exit()
-                      app.relaunch()
-                    }
-                  })
-                })
-            }
-          })
-        })
-      }
-    }
-  })
-} catch (err) {
-  console.log(err)
-  log.warn(err)
-}
+  const config = require(appdir + '/config')
 
-try {
-  const config = require(appdir + '/clever-config')
+  CreateConfig.checkVarExistingConfigFile(appdir)
+    .then(checkExist => {
+      if (!checkExist) {
+        CreateConfig.updateExistingConfigFile(ipaddress, appdir)
+        return
+      }
+    }).catch(e => {
+      log.warn(e)
+    })
+
+
+  // check if existing application is running then focus to application window
   if (!gotTheLock) {
     app.exit()
   } else {
@@ -167,12 +124,18 @@ try {
     //APP START UP CONFIG
     app.on('ready', () => {
       win = new BrowserWindow({
-        kiosk: true,
+        backgroundColor: '#302d2d',
+        //alwaysOnTop: true,
+        //autoHideMenuBar: true,
+        fullscreenable: false,
+        //resizable: false,
+        //moveable: false,
+        closable: true,
+        transparent: true,
         frame: false,
         zoomFactor: 1,
-        backgroundColor: "#242322",
+        center: true,
         show: false,
-        kiosk: true,
         webPreferences: {
           webviewTag: true,
           plugins: true,
@@ -180,30 +143,23 @@ try {
           enableRemoteModule: true,
           devTools: true, //enable or disable dev tools
           nodeIntegration: true,
-          webSecurity: false,
-          contextIsolation: false
+          contextIsolation: false,
+          preload: path.join(__dirname, 'preload.js')
         }
       })
 
       //enable remote webContents
       require('@electron/remote/main').enable(win.webContents)
 
+      const {
+        setMainWindow
+      } = require('./route')
+
+      setMainWindow(win, desktopCapturer, screen)
 
       win.on('closed', () => {
         win = null
       })
-
-      if (winpreview) {
-        winpreview.on('closed', () => {
-          winpreview = null
-        })
-      }
-
-      //open debugs mode 
-      win.openDevTools()
-      if (winpreview) {
-        winpreview.openDevTools()
-      }
 
       //APPS FAIL TO LOAD (WHITE SCREEN)
       win.webContents.on("did-fail-load", function (evt, errcode, errname) {
@@ -215,10 +171,15 @@ try {
         }
       })
 
+      //hide menu bar
+      //win.setSkipTaskbar(true)
+      //win.setAlwaysOnTop(true)
+      win.setMenuBarVisibility(false)
+      Menu.setApplicationMenu(null)
+      win.setMenu(null)
+
       //APPS READY 
       win.on('ready-to-show', function () {
-        
-        win.webContents.transition = 'fade 0.1s'
         win.setBackgroundColor('#242322')
         win.show()
         win.focus()
@@ -242,9 +203,6 @@ try {
 
       //CLEAR CACHE AND COOKIE EVERY STARTUP
       var ses = win.webContents.session
-      if (winpreview) {
-        var sespre = winpreview.webContents.session
-      }
 
       //ses.clearCache(() => {
       //  log.info("Cache cleared!")
@@ -255,9 +213,16 @@ try {
       })
 
       //SHORTCUT KEY
-      globalShortcut.register('CommandOrControl+X', () => {
+      globalShortcut.register('CommandOrControl+4', () => {
         app.exit()
         log.warn('Application exit')
+      })
+
+      //open dev tools
+
+      globalShortcut.register('CommandOrControl+D', () => {
+        //d3bug mode
+        win.openDevTools()
       })
 
       globalShortcut.register('F5', () => {
@@ -265,9 +230,6 @@ try {
           log.info("Cache cleared!")
         })
         win.reload()
-        if (winpreview) {
-          winpreview.reload()
-        }
       })
 
       globalShortcut.register('Esc', () => {
@@ -289,38 +251,8 @@ try {
         app.relaunch()
       }, 432000000) // 5 days in milliseconds
 
-      var status
       //check url status and open
-      (async () => {
-        //await isReachable(config.cleverweb, {
-        await isReachable('http://' + config.controller, {
-          timeout: 10000
-        }).then((status) => {
-          macaddress.one(function (err, mac) {
-            //console.log("Mac address for this host: %s", mac)
-            const secret = 'Clt@2022'
-            const hash = Crypto.createHash('sha256', secret).update(mac).digest('hex')
-            if (config.serialkey == hash) {
-              if (status == true) {
-                //if (win) win.loadURL('https://' + config.cleverweb + '/single.html')
-                if (win) win.loadURL('http://' + config.controller + '/preview/' + config.tempid)
-                log.info('Server https://' + config.controller + '/preview/' + config.tempid + ' is online')
-                pingstat = false
-              } else {
-                win.loadURL("file://" + __dirname + "/src/offline.html")
-                log.warn('Server https://' + config.cleverweb + ' is offline')
-                pingstat = true
-              }
-            } else {
-              win.setKiosk(false)
-              win.loadURL("file://" + __dirname + "/src/activate.html")
-              if (winpreview) {
-                winpreview.close()
-              }
-            }
-          })
-        })
-      })()
+      CreateConfig.checkSerial(appdir, win)
 
       //From Screen slot (webview)
       ipcMain.on('appname-check', (event, args) => {
@@ -331,6 +263,11 @@ try {
       //Exit app button (clever web)
       ipcMain.on('app-exit', (event, args) => {
         app.quit()
+      })
+
+      //Update template id
+      ipcMain.on('app-update-id', (event, args) => {
+        win.reload()
       })
 
       //Exit app button (clever web)
@@ -347,8 +284,7 @@ try {
 
       //reload app
       ipcMain.on('app-reload', (event, logs) => {
-        app.exit()
-        app.relaunch()
+        CreateConfig.checkSerial(appdir, win)
       })
 
       //reload main
@@ -356,151 +292,30 @@ try {
         win.reload()
       })
 
-      //reload preview
-      ipcMain.on('app-previewreload', (event, logs) => {
-        if (winpreview) {
-          winpreview.reload()
-        }
-      })
-
       //reset main and preview
       ipcMain.on('app-resetdefault', (event, logs) => {
         ses.clearStorageData()
-        if (winpreview) {
-          sespre.clearStorageData()
-        }
       })
 
       //Save configuration app button (clever web)
-      ipcMain.on('app-configsave', (event, args) => {
-        console.log(args['hostaddress'])
-        fs.writeFile(appdir + '/clever-config.js',
-          "var hostserver = '" + args['hostaddress'] + "'; // IP or Hostname Hosted\r\n\r\n\r\n" +
-          "var controllerport = '9600'; // Clever Controller Port Number\r\n\r\n\r\n" +
-          "var cleverwebport = '9100'; // Clever Web Hosting Port Number\r\n\r\n\r\n" +
-          "var mediaserverport = '9200'; // Media Server Services Port Number\r\n\r\n\r\n" +
-          "var screenserverport = '9300'; // Screen Cast Web Hosting Services Port Number\r\n\r\n\r\n" +
-          "var screenapiport = '9301'; // Screen Cast Socket API Services Port Number\r\n\r\n\r\n" +
-          "var tempid = '" + args['tempid'] + "'; // insert template id\r\n\r\n\r\n" +
-          "var serialkey = '" + args['serialkey'] + "'; // insert serial key\r\n\r\n\r\n" +
-          "/*=======================================================================================================\r\n" +
-          "DO NOT MODIFY ANYTHING BELOW THIS SECTION. THERE'S A RISK OR IT MAY CAUSE OF APPLICATION ERROR. \r\n" +
-          "========================================================================================================*/\r\n" +
-          "module.exports.hostserver = hostserver; // localhost for office\r\n" +
-          "module.exports.controller = hostserver + ':' + controllerport; // Clever Web Hosting Services\r\n" +
-          "module.exports.cleverweb = hostserver + ':' + cleverwebport; // Clever Web Hosting Services\r\n" +
-          "module.exports.mediaserver = hostserver + ':' + mediaserverport; // Media Server Services\r\n" +
-          "module.exports.screenserver = hostserver + ':' + screenserverport; // Screen Cast Web Hosting Services\r\n" +
-          "module.exports.screenapi = hostserver + ':' + screenapiport; // Screen Cast Socket API Services\r\n" +
-          "module.exports.remotedesktop = hostserver + ':9400'; // Remote Desktop Services\r\n" +
-          "module.exports.controllerport1 = controllerport;\r\n" +
-          "module.exports.cleverwebport1 = cleverwebport;\r\n" +
-          "module.exports.mediaserverport1 = mediaserverport;\r\n" +
-          "module.exports.screenserverport1 = screenserverport;\r\n" +
-          "module.exports.screenapiport1 = screenapiport;\r\n" +
-          "module.exports.timeout = 10000;\r\n" +
-          "module.exports.tempid = tempid;\r\n" +
-          "module.exports.serialkey = serialkey;\r\n",
-          function (err, data) {
-            if (err) {
-              log.warn(err)
-            }
-            log.info('Config file created.')
-            const options = {
-              type: 'info',
-              buttons: ['Ok'],
-              defaultId: 2,
-              title: 'Setup and configuration',
-              message: 'Config file has been updated.',
-              detail: 'Please change hostserver at this location ' + appdir + '/clever-config.js \r\n' +
-                '\r\n\r\n' +
-                'Copyright © 2000-' + date.format(now, 'YYYY') + ' by Closed-loop Technology Pte Ltd. All rights reserved \r\n' +
-                ' www.closed-loop.biz'
-            }
-            dialog.showMessageBox(null, options).then((data) => {
-              if (data.response == 0) {
-                app.exit()
-                app.relaunch()
-              }
-            })
-          })
+      ipcMain.on('app-configsave', async (event, args) => {
+        await CreateConfig.updateSpecificVarOnlyConfigFile(appdir, args)
+        CreateConfig.checkSerial(appdir, win)
       })
     })
   }
 } catch (ex) {
-  log.warn(ex)
-  if (!fs.existsSync(appdir)) {
-    log.info(appdir + ' not exist')
-    fs.mkdir(appdir, 0o755, (err) => {
-      if (err) {
-        log.warn(err)
-      }
-    })
-  }
-  if (!fs.existsSync(logdir)) {
-    log.info(logdir + ' not exist')
-    fs.mkdir(logdir, 0o755, (err) => {
-      if (err) {
-        log.warn(err)
-      }
-    })
-  }
+  console.log(ex)
+  //get local ip address
+  var ipaddress
 
-  si.networkInterfaces().then(data => {
-    data.forEach((net) => {
-      if (net.operstate == 'up' && net.virtual == false) {
-        fs.writeFile(appdir + '/clever-config.js',
-          "var hostserver = '" + net.ip4 + "'; // IP or Hostname Hosted\r\n\r\n\r\n" +
-          "var controllerport = '9600'; // Clever Controller Port Number\r\n\r\n\r\n" +
-          "var cleverwebport = '9100'; // Clever Web Hosting Port Number\r\n\r\n\r\n" +
-          "var mediaserverport = '9200'; // Media Server Services Port Number\r\n\r\n\r\n" +
-          "var screenserverport = '9300'; // Screen Cast Web Hosting Services Port Number\r\n\r\n\r\n" +
-          "var screenapiport = '9301'; // Screen Cast Socket API Services Port Number\r\n\r\n\r\n" +
-          "var tempid = '1'; // insert template id\r\n\r\n\r\n" +
-          "var serialkey = '1d74f3eda4dd9d1065a6216c84c27d67301779b76996dc867f4403d48f9ad91e'; // insert serial key\r\n\r\n\r\n" +
-          "/*=======================================================================================================\r\n" +
-          "DO NOT MODIFY ANYTHING BELOW THIS SECTION. IT MAY CORRUPTED THIS APPLICATION \r\n" +
-          "========================================================================================================*/\r\n" +
-          "module.exports.hostserver = hostserver; // localhost for office\r\n" +
-          "module.exports.controller = hostserver + ':' + controllerport; // Clever Web Hosting Services\r\n" +
-          "module.exports.cleverweb = hostserver + ':' + cleverwebport; // Clever Web Hosting Services\r\n" +
-          "module.exports.mediaserver = hostserver + ':' + mediaserverport; // Media Server Services\r\n" +
-          "module.exports.screenserver = hostserver + ':' + screenserverport; // Screen Cast Web Hosting Services\r\n" +
-          "module.exports.screenapi = hostserver + ':' + screenapiport; // Screen Cast Socket API Services\r\n" +
-          "module.exports.remotedesktop = hostserver + ':9400'; // Remote Desktop Services\r\n" +
-          "module.exports.controllerport1 = controllerport;\r\n" +
-          "module.exports.cleverwebport1 = cleverwebport;\r\n" +
-          "module.exports.mediaserverport1 = mediaserverport;\r\n" +
-          "module.exports.screenserverport1 = screenserverport;\r\n" +
-          "module.exports.screenapiport1 = screenapiport;\r\n" +
-          "module.exports.timeout = 10000;\r\n" +
-          "module.exports.tempid = tempid;\r\n" +
-          "module.exports.serialkey = serialkey;\r\n",
-          function (err, data) {
-            if (err) {
-              log.warn(err)
-            }
-            log.info('Config file created.')
-            const options = {
-              type: 'info',
-              buttons: ['Ok'],
-              defaultId: 1,
-              title: 'Setup and configuration',
-              message: 'Config file has been created.',
-              detail: 'Please change hostserver at this location ' + appdir + '\ /clever-config.js \r\n' +
-                '\r\n\r\n' +
-                'Copyright © 2000-' + date.format(now, 'YYYY') + ' by Closed-loop Technology Pte Ltd. All rights reserved \r\n' +
-                ' www.closed-loop.biz'
-            }
-            dialog.showMessageBox(null, options).then((data) => {
-              if (data.response == 0) {
-                app.exit()
-                app.relaunch()
-              }
-            })
-          })
-        return
-      }
-    })
-  })
+  // Example usage
+  const portScanner = new PortScanner();
+  portScanner.scanIPRange().then((openPorts) => {
+    ipaddress = openPorts[0] || 'localhost'
+    if (!fs.existsSync(path.join(appdir, 'config.js'))) {
+      CreateConfig.createConfigFile(ipaddress, appdir, ex)
+      return
+    }
+  });
 }

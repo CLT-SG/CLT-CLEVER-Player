@@ -18,22 +18,18 @@
   <script src="assets/js/jquery.min.js"></script>
 
   <script>
-    if (typeof (require) != "undefined") {
-      var {
-        ipcRenderer,
-      } = require('electron')
-      var remote = require('@electron/remote')
-      var convert = require('xml-js')
-      var datetime = require('date-and-time')
-      var path = require('path')
-      var os = require('os')
-      var macaddress = require('macaddress')
-      var QRCode = require('qrcode')
-      var homedir = os.homedir()
-      var config = require(homedir + '/clever-app/clever-config')
-      var hostserver = config.hostserver
-      var dsid = config.id
-      var mode = config.mode
+    try {
+      var ipcRenderer = window.ipcRenderer
+      var remote = window.remote
+      var convert = window.xmljs
+      var datetime = window.datetime
+      var path = window.path
+      var os = window.os
+      var config = window.config
+      var macaddress = window.macaddress
+      var QRCode = window.QRCode
+    } catch (e) {
+      console.log('error module : ' + e)
     }
   </script>
   <style>
@@ -116,7 +112,6 @@
 </body>
 
 <script>
-  var QRCode = require('qrcode')
   var canvas = document.getElementById('canvas')
   macaddress.one(function (err, mac) {
     $('.mac').text('MAC Address : ' + mac)

@@ -1,13 +1,15 @@
 {
-  "name": "cltcleverapp",
-  "version": "4.0.1",
-  "description": "Clever v3 Player",
+  "name": "cleverconsole",
+  "version": "4.0.5",
+  "description": "Clever Console Player",
   "main": "index.js",
   "license": "ISC",
   "scripts": {
     "start": "electron .",
-    "pack": "build --dir",
-    "dist": "electron-builder --linux"
+    "win32": "electron-builder --win --ia32",
+    "win64": "electron-builder --win --x64",
+    "ubuntu32": "electron-builder --linux --ia32",
+    "ubuntu64": "electron-builder --linux --x64"
   },
   "homepage": "www.closed-loop.biz",
   "author": {
@@ -15,44 +17,58 @@
     "email": "sales@closed-loop.biz"
   },
   "dependencies": {
-    "@electron/remote": "^2.0.9",
+    "@electron/remote": "^2.1.1",
     "@wuild/electron-notification": "^1.0.3",
-    "app": "^0.1.0",
+    "body-parser": "^1.20.2",
     "browser-window": "^0.4.0",
+    "cors": "^2.8.5",
     "crypto": "^1.0.1",
-    "date-and-time": "^0.8.1",
+    "date-and-time": "^3.1.0",
     "electron-log": "^3.0.6",
+    "electron-shutdown-command": "^2.0.1",
+    "express": "^4.18.2",
+    "express-csp-header": "^5.2.1",
     "ip": "^1.1.5",
-    "is-reachable": "^4.0.0",
+    "is-port-reachable": "^4.0.0",
+    "is-reachable": "^5.2.1",
     "macaddress": "^0.5.2",
     "node-cmd": "^3.0.0",
     "node-notifier": "^6.0.0",
     "qrcode": "^1.5.0",
     "remote": "^0.2.6",
-    "systeminformation": "^5.16.9",
+    "sharp": "^0.33.0",
+    "systeminformation": "^5.21.22",
     "xml-js": "^1.6.11"
   },
   "devDependencies": {
-    "electron": "^22.0.0",
+    "electron": "^28.1.2",
     "electron-builder": "^22.3.2",
     "electron-builder-squirrel-windows": "^22.3.3"
   },
   "build": {
-    "appId": "com.electron.closedloop.cltcleverapp",
-    "productName": "CLT - Clever",
+    "appId": "com.clt.cleverconsole",
+    "productName": "CLEVER - Console",
+    "extraResources": [
+      {
+        "from": "./cert",
+        "to": "cert"
+      }
+    ],
+    "files": [
+      "**/*"
+    ],
     "directories": {
-      "output": "build"
+      "output": "build/release"
     },
     "win": {
       "target": "nsis",
-      "icon": "./build/clt.png",
-      "legalTrademarks": "Copyright by Closed-loop Technology Pte Ltd. All rights reserved"
+      "icon": "./build/icons/clt.png"
     },
     "linux": {
       "target": "deb",
-      "icon": "./build/clt.png",
+      "icon": "./build/icons/clt.png",
       "category": "AudioVideo",
-      "desktop": "cleverapp"
+      "desktop": "cleverconsole"
     },
     "mac": {
       "category": "public.app-category.utilities",

@@ -61,24 +61,16 @@
 		var screenserver = hostserver + ':9300'
 		var screenapi = hostserver + ':9301'
 		var remotedesktop = hostserver + ':9400'
-		if (typeof (require) != "undefined") {
-			var {
-				ipcRenderer
-			} = require("electron")
-			var remote = require('@electron/remote')
+		try {
+			var ipcRenderer = window.ipcRenderer
+			var remote = window.remote
+			var path = window.path
+			var os = window.os
+			var config = window.config
 			var win = remote.getCurrentWebContents()
-			var path = require('path')
-			var os = require('os')
 			var homedir = os.homedir()
-			var cmd = require('node-cmd') //Run cmd windows
-			config = require(homedir + '/clever-app/clever-config')
-			hostserver = config.hostserver
-			controller = config.controller
-			cleverweb = config.cleverweb
-			screenapi = config.screenapi
-			mediaserver = config.mediaserver
-			screenserver = config.screenserver
-			remotedesktop = config.remotedesktop
+		} catch (e) {
+			console.log(e)
 		}
 	</script>
 </head>
@@ -104,6 +96,15 @@
 							<input type="text" id="tempid" class="form-control" value="" />
 						</div>
 					</div>
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <div>Controller Type</div>
+                            <select class="form-control" id="ctrltype">
+                                <option value="videowall">Video Wall</option>
+                                <option value="console">Console</option>
+                            </select>
+                        </div>
+                    </div>
 					<div class="col-md-6">
 						<div class="form-group">
 							<div>Controller Port</div>
@@ -141,21 +142,23 @@
 	$('#cleverwebport').val(config.cleverwebport1)
 	$('#mediaserverport').val(config.mediaserverport1)
 	$('#tempid').val(config.tempid)
+    $('#ctrltype  option[value="' + config.ctrltype + '"]').prop("selected", true)
 	$('#serialkey').val(config.serialkey)
 
 	$('#save').on('click', app_config)
 	$('#home').on('click', function () {
 		appname = ipcRenderer.send('app-reload')
-		//remote.getCurrentWindow().loadURL('https://' + config.cleverweb + '/index.html')
 	})
 
 	function app_config() {
 		var hostaddress = $('#hostserver').val()
 		var tempid = $('#tempid').val()
+        var ctrltype = $('#ctrltype').find(":selected").val()
 		var serialkey = $('#serialkey').val()
 		var argsObj = []
 		argsObj.hostaddress = hostaddress
 		argsObj.tempid = tempid
+		argsObj.ctrltype = ctrltype
 		argsObj.serialkey = serialkey
 		if (typeof (require) != "undefined") {
 			if (/^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/
