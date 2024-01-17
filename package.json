@@ -66,7 +66,7 @@
     },
     "linux": {
       "target": "deb",
-      "icon": "build/icon/clt.ico",
+      "icon": "build/icon/clt.png",
       "category": "AudioVideo",
       "desktop": "cleverconsole"
     },
