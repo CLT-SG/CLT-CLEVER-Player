@@ -1,7 +1,7 @@
 {
   "name": "cleverconsole",
-  "version": "4.0.5",
-  "description": "Clever Console Player",
+  "version": "4.0.6",
+  "description": "CLEVER Console Player",
   "main": "index.js",
   "license": "ISC",
   "scripts": {

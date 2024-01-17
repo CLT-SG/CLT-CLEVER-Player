@@ -5,7 +5,8 @@ const homedir = os.homedir()
 const logdir = path.normalize(homedir + '/clever-console/logs')
 const {
     app,
-    dialog
+    dialog,
+    screen
 } = require('electron')
 const isReachable = require('is-reachable')
 const macaddress = require('macaddress')
@@ -192,7 +193,10 @@ class CreateConfig {
         }
     }
 
-    static async checkSerial(appdir, win) {
+    static async checkSerial(appdir, {
+        mainWin,
+        serverWin
+    }) {
         const config = this.readConfig(appdir);
         if (!config) {
             console.error('Failed to load configuration. Check the config file.');
@@ -206,18 +210,35 @@ class CreateConfig {
                 const hash = Crypto.createHash('sha256', secret).update(mac).digest('hex');
                 if (config.serialkey == hash) {
                     if (status == true) {
-                        if (win) {
-                            if (config.ctrltype == 'videowall') win.loadURL('http://' + config.controller + '/preview/' + config.tempid + '/videowall');
-                            if (config.ctrltype == 'console') win.loadURL('http://' + config.controller + '/preview/' + config.tempid + '/console');
+                        if (mainWin) {
+                            if (config.ctrltype == 'videowall') mainWin.loadURL('http://' + config.controller + '/preview/' + config.tempid + '/videowall')
+                            if (config.ctrltype == 'console') mainWin.loadURL('http://' + config.controller + '/preview/' + config.tempid + '/console')
+                            if (serverWin) {
+                                serverWin.show()
+                                serverWin.setBounds({
+                                    x: 0,
+                                    y: 0,
+                                    width: screen.getPrimaryDisplay().workArea.width,
+                                    height: screen.getPrimaryDisplay().workArea.height
+                                })
+                                serverWin.loadURL('http://' + config.controller)
+                                serverWin.blur()
+                            }
+                            mainWin.setBounds({
+                                x: 0,
+                                y: 0,
+                                width: screen.getPrimaryDisplay().workArea.width,
+                                height: screen.getPrimaryDisplay().workArea.height
+                            })
+                            mainWin.focus()
                         }
-                        log.info('Server https://' + config.controller + '/preview/' + config.tempid + ' is online');
+                        log.info('Server https://' + config.controller + '/preview/' + config.tempid + ' is online')
                     } else {
-                        win.loadURL("file://" + __dirname + "/src/offline.html");
-                        log.warn('Server https://' + config.cleverweb + ' is offline');
+                        mainWin.loadURL("file://" + __dirname + "/src/offline.html")
+                        log.warn('Server https://' + config.cleverweb + ' is offline')
                     }
                 } else {
-                    win.setKiosk(false);
-                    win.loadURL("file://" + __dirname + "/src/activate.html");
+                    mainWin.loadURL("file://" + __dirname + "/src/activate.html")
                 }
             });
         });

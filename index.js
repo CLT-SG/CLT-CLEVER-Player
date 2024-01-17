@@ -17,10 +17,8 @@ const path = require('path')
 const fs = require('fs')
 const os = require('os')
 const homedir = os.homedir()
-const si = require('systeminformation')
 const date = require('date-and-time')
 var log = require('electron-log')
-var status
 
 const appdir = path.normalize(homedir + '/clever-console')
 const logdir = path.normalize(homedir + '/clever-console/logs')
@@ -47,7 +45,8 @@ if (!fs.existsSync(logdir)) {
 }
 
 //One instance process check
-let win = null
+let mainWin = null
+let serverWin = null
 
 //disable security warning
 delete process.env.ELECTRON_ENABLE_SECURITY_WARNINGS
@@ -75,12 +74,19 @@ try {
   } else {
     app.on('second-instance', (event, commandLine, workingDirectory) => {
       // Someone tried to run a second instance, we should focus our window.
-      if (win) {
-        if (win.isMinimized()) {
-          log.info("Restore process.")
-          win.show()
+      if (serverWin) {
+        if (serverWin.isMinimized()) {
+          log.info("Server window restore process.")
+          serverWin.show()
         }
-        win.focus()
+        serverWin.focus()
+      }
+      if (mainWin) {
+        if (mainWin.isMinimized()) {
+          log.info("Main window restore process.")
+          mainWin.show()
+        }
+        mainWin.focus()
       }
     })
 
@@ -123,14 +129,14 @@ try {
 
     //APP START UP CONFIG
     app.on('ready', () => {
-      win = new BrowserWindow({
+      mainWin = new BrowserWindow({
         backgroundColor: '#302d2d',
         //alwaysOnTop: true,
         //autoHideMenuBar: true,
         fullscreenable: false,
-        //resizable: false,
-        //moveable: false,
-        closable: true,
+        resizable: false,
+        moveable: false,
+        closable: false,
         transparent: true,
         frame: false,
         zoomFactor: 1,
@@ -148,23 +154,63 @@ try {
         }
       })
 
+      serverWin = new BrowserWindow({
+        x: 0,
+        y: 0,
+        width: 0,
+        height: 0,
+        backgroundColor: '#302d2d',
+        //alwaysOnTop: true,
+        //autoHideMenuBar: true,
+        fullscreenable: false,
+        resizable: false,
+        moveable: false,
+        closable: false,
+        transparent: true,
+        frame: false,
+        zoomFactor: 1,
+        center: true,
+        show: false,
+        webPreferences: {
+          webviewTag: true,
+          plugins: true,
+          webSecurity: false,
+          enableRemoteModule: true,
+          devTools: true, //enable or disable dev tools
+          nodeIntegration: true,
+          contextIsolation: false
+        }
+      })
+
       //enable remote webContents
-      require('@electron/remote/main').enable(win.webContents)
+      require('@electron/remote/main').enable(mainWin.webContents)
 
       const {
         setMainWindow
       } = require('./route')
 
-      setMainWindow(win, desktopCapturer, screen)
+      setMainWindow(mainWin, desktopCapturer, screen)
 
-      win.on('closed', () => {
-        win = null
+      mainWin.on('closed', () => {
+        mainWin = null
+      })
+
+      serverWin.on('closed', () => {
+        serverWin = null
       })
 
       //APPS FAIL TO LOAD (WHITE SCREEN)
-      win.webContents.on("did-fail-load", function (evt, errcode, errname) {
-        log.warn("did-fail-load : " + errcode + "/ ", errname)
-        console.log("did-fail-load : " + errcode + "/ ", errname)
+      mainWin.webContents.on("did-fail-load", function (evt, errcode, errname) {
+        log.warn("Main window did-fail-load : " + errcode + "/ ", errname)
+        console.log("Main window did-fail-load : " + errcode + "/ ", errname)
+        if (errcode != -3 || errcode != -27) {
+          app.relaunch()
+          app.quit()
+        }
+      })
+      serverWin.webContents.on("did-fail-load", function (evt, errcode, errname) {
+        log.warn("Server window did-fail-load : " + errcode + "/ ", errname)
+        console.log("Server window did-fail-load : " + errcode + "/ ", errname)
         if (errcode != -3 || errcode != -27) {
           app.relaunch()
           app.quit()
@@ -172,29 +218,45 @@ try {
       })
 
       //hide menu bar
-      //win.setSkipTaskbar(true)
-      //win.setAlwaysOnTop(true)
-      win.setMenuBarVisibility(false)
+      //mainWin.setSkipTaskbar(true)
+      //mainWin.setAlwaysOnTop(true)
+      //mainWin.setMenuBarVisibility(false)
       Menu.setApplicationMenu(null)
-      win.setMenu(null)
+      mainWin.setMenu(null)
+      //serverWin.setSkipTaskbar(true)
+      //serverWin.setAlwaysOnTop(true)
+      //serverWin.setMenuBarVisibility(false)
+      Menu.setApplicationMenu(null)
+      serverWin.setMenu(null)
 
       //APPS READY 
-      win.on('ready-to-show', function () {
-        win.setBackgroundColor('#242322')
-        win.show()
-        win.focus()
+      mainWin.on('ready-to-show', function () {
+        mainWin.setBackgroundColor('#242322')
+        mainWin.show()
       })
 
       //APPS CRASH
-      win.webContents.on('crashed', (e, killed) => {
-        log.warn("apps-crashed : " + e + " / Killed : " + killed)
+      mainWin.webContents.on('crashed', (e, killed) => {
+        log.warn("Main window crashed : " + e + " / Killed : " + killed)
+        app.relaunch()
+        app.quit()
+      })
+      serverWin.webContents.on('crashed', (e, killed) => {
+        log.warn("Server window crashed : " + e + " / Killed : " + killed)
         app.relaunch()
         app.quit()
       })
 
       //APPS FAIL TO LOAD (WHITE SCREEN)
-      win.webContents.on("did-fail-load", function (evt, errcode, errname) {
-        log.warn("did-fail-load : " + errcode + "/ ", errname)
+      mainWin.webContents.on("did-fail-load", function (evt, errcode, errname) {
+        log.warn("Main window did-fail-load : " + errcode + "/ ", errname)
+        if (errcode != -3 || errcode != -27) {
+          app.exit()
+          app.relaunch()
+        }
+      })
+      serverWin.webContents.on("did-fail-load", function (evt, errcode, errname) {
+        log.warn("Server window did-fail-load : " + errcode + "/ ", errname)
         if (errcode != -3 || errcode != -27) {
           app.exit()
           app.relaunch()
@@ -202,48 +264,63 @@ try {
       })
 
       //CLEAR CACHE AND COOKIE EVERY STARTUP
-      var ses = win.webContents.session
+      var mainSes = mainWin.webContents.session
 
       //ses.clearCache(() => {
       //  log.info("Cache cleared!")
       //})
 
-      win.webContents.on('did-finish-load', () => {
-        win.webContents.setVisualZoomLevelLimits(1, 1)
+      //Set visual zoom level to window
+      mainWin.webContents.on('did-finish-load', () => {
+        mainWin.webContents.setVisualZoomLevelLimits(1, 1)
+      })
+      serverWin.webContents.on('did-finish-load', () => {
+        serverWin.webContents.setVisualZoomLevelLimits(1, 1)
       })
 
-      //SHORTCUT KEY
-      globalShortcut.register('CommandOrControl+4', () => {
+
+
+      //open d3bug mode with Alt+Insert key
+      globalShortcut.register('Alt+Insert', () => {
+        mainWin.openDevTools()
+      })
+
+      //open configure page with Alt+Home key
+      globalShortcut.register('Alt+Home', () => {
+        mainWin.loadURL("file://" + __dirname + "/src/configure.html")
+      })
+
+      //Focus main or server window. This is quick link with Alt+PageUp key
+      globalShortcut.register('Alt+PageUp', () => {
+        if (mainWin.isFocused()) {
+          mainWin.blur()
+          serverWin.focus()
+        } else {
+          serverWin.blur()
+          mainWin.focus()
+        }
+      })
+
+      //Disable Alt+Tab
+      globalShortcut.register('Alt+Tab', () => {
+        return
+      })
+
+      //Exit application with Alt+Delete key
+      globalShortcut.register('Alt+Delete', () => {
         app.exit()
         log.warn('Application exit')
       })
 
-      //open dev tools
-
-      globalShortcut.register('CommandOrControl+D', () => {
-        //d3bug mode
-        win.openDevTools()
-      })
-
-      globalShortcut.register('F5', () => {
-        ses.clearCache(() => {
+      //refresh main window with Alt+F5
+      globalShortcut.register('Alt+F5', () => {
+        mainSes.clearCache(() => {
           log.info("Cache cleared!")
         })
-        win.reload()
+        mainWin.reload()
       })
 
-      globalShortcut.register('Esc', () => {
-        //send message to clever
-        win.webContents.send('slot-orisize', 'ESC');
-      })
 
-      //open configure page
-      globalShortcut.register('CommandOrControl+F1', () => {
-        win.setSkipTaskbar(false)
-        win.setAlwaysOnTop(false)
-        win.setMenuBarVisibility(true)
-        win.loadURL("file://" + __dirname + "/src/configure.html")
-      })
 
       //restart app every 6days
       setTimeout(function () {
@@ -252,7 +329,10 @@ try {
       }, 432000000) // 5 days in milliseconds
 
       //check url status and open
-      CreateConfig.checkSerial(appdir, win)
+      CreateConfig.checkSerial(appdir, {
+        mainWin: mainWin,
+        serverWin: serverWin
+      })
 
       //From Screen slot (webview)
       ipcMain.on('appname-check', (event, args) => {
@@ -267,7 +347,7 @@ try {
 
       //Update template id
       ipcMain.on('app-update-id', (event, args) => {
-        win.reload()
+        mainWin.reload()
       })
 
       //Exit app button (clever web)
@@ -284,23 +364,29 @@ try {
 
       //reload app
       ipcMain.on('app-reload', (event, logs) => {
-        CreateConfig.checkSerial(appdir, win)
+        CreateConfig.checkSerial(appdir, {
+          mainWin: mainWin,
+          serverWin: serverWin
+        })
       })
 
-      //reload main
+      //reload main window
       ipcMain.on('app-mainreload', (event, logs) => {
-        win.reload()
+        mainWin.reload()
       })
 
-      //reset main and preview
+      //reset main window and preview
       ipcMain.on('app-resetdefault', (event, logs) => {
-        ses.clearStorageData()
+        mainSes.clearStorageData()
       })
 
       //Save configuration app button (clever web)
       ipcMain.on('app-configsave', async (event, args) => {
         await CreateConfig.updateSpecificVarOnlyConfigFile(appdir, args)
-        CreateConfig.checkSerial(appdir, win)
+        CreateConfig.checkSerial(appdir, {
+          mainWin: mainWin,
+          serverWin: serverWin
+        })
       })
     })
   }

@@ -1,3 +1,4 @@
+
 window.ipcRenderer = require("electron").ipcRenderer
 window.remote = require('@electron/remote')
 window.win = remote.getCurrentWebContents()
@@ -20,11 +21,3 @@ window.isReachable = require('is-reachable')
 window.macaddress = require('macaddress')
 window.QRCode = require('qrcode')
 
-
-remote.getCurrentWindow().setBounds({
-    y: 0,
-    x: 0,
-    width: screen.width,
-    height: screen.height
-  })
-  remote.getCurrentWindow().center()
