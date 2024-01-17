@@ -62,18 +62,18 @@
     },
     "win": {
       "target": "nsis",
-      "icon": "build/icons/clt.png"
+      "icon": "build/icon/clt.png"
     },
     "linux": {
       "target": "deb",
-      "icon": "build/icons/clt.ico",
+      "icon": "build/icon/clt.ico",
       "category": "AudioVideo",
       "desktop": "cleverconsole"
     },
     "mac": {
       "category": "public.app-category.utilities",
       "target": "default",
-      "icon": "build/icons/clt.icns"
+      "icon": "build/icon/clt.icns"
     }
   }
 }
