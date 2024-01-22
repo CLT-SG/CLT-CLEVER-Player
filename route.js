@@ -79,7 +79,7 @@
     app.post('/api/push', async (req, res) => {
         var template_id = req.body.id
         try { //update template id in the config file
-            searchAndReplace(appdir + '/clever-config.js', 'var tempid', `var tempid  = '${template_id}'; // insert template id`)
+            searchAndReplace(appdir + '/config.js', 'var tempid', `var tempid  = '${template_id}'; // insert template id`)
                 .then(async () => {
                     await mainWindow.webContents.loadURL('http://' + config.controller + '/preview/' + template_id) // load template url from server
                     log.info('PUSH CONSOLE : Template id updated successfully.')

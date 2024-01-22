@@ -212,8 +212,8 @@ class CreateConfig {
                     if (status == true) {
                         if (mainWin) {
                             if (config.ctrltype == 'videowall') mainWin.loadURL('http://' + config.controller + '/preview/' + config.tempid + '/videowall')
-                            if (config.ctrltype == 'console') mainWin.loadURL('http://' + config.controller + '/preview/' + config.tempid + '/console')
-                            if (serverWin) {
+                            if (config.ctrltype == 'console' && serverWin) {
+				mainWin.loadURL('http://' + config.controller + '/preview/' + config.tempid + '/console')
                                 serverWin.show()
                                 serverWin.setBounds({
                                     x: 0,
