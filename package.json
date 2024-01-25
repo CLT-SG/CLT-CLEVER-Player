@@ -1,7 +1,7 @@
 {
-  "name": "cleverconsole",
-  "version": "4.0.6",
-  "description": "CLEVER Console Player",
+  "name": "cleverplayer",
+  "version": "4.0.7",
+  "description": "CLEVER Console & Video Wall Player",
   "main": "index.js",
   "license": "ISC",
   "scripts": {
@@ -46,8 +46,8 @@
     "electron-builder-squirrel-windows": "^22.3.3"
   },
   "build": {
-    "appId": "com.clt.cleverconsole",
-    "productName": "CLEVER - Console",
+    "appId": "com.clt.cleverplayer",
+    "productName": "CLEVER - Player For Console & Video Wall",
     "extraResources": [
       {
         "from": "./cert",
@@ -68,7 +68,7 @@
       "target": "deb",
       "icon": "build/icon/clt.png",
       "category": "AudioVideo",
-      "desktop": "cleverconsole"
+      "desktop": "cleverplayer"
     },
     "mac": {
       "category": "public.app-category.utilities",
