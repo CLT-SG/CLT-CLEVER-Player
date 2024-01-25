@@ -81,8 +81,8 @@
         try { //update template id in the config file
             searchAndReplace(appdir + '/config.js', 'var tempid', `var tempid  = '${template_id}'; // insert template id`)
                 .then(async () => {
-		    if (config.ctrltype == 'videowall') await mainWindow.loadURL('http://' + config.controller + '/preview/' + template_id + '/videowall') // load template url from server to vw
-                    if (config.ctrltype == 'console') await mainWindow.loadURL('http://' + config.controller + '/preview/' + template_id + '/console') // load template url from server to console
+                    if (config.ctrltype == 'videowall') await mainWindow.loadURL('http://' + config.controller + '/preview/' + template_id + '/videowall') // load template url from server to vw
+                    if (config.ctrltype == 'console') await mainWindow.loadURL('http://' + config.controller + '/preview/login') // load template url from server to console
                     log.info('PUSH CONSOLE : Template id updated successfully.')
                     return res.status(200).end('Push to console ok') //success loaded
                 })
