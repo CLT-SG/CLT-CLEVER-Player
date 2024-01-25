@@ -1,6 +1,6 @@
 {
   "name": "cleverplayer",
-  "version": "4.0.7",
+  "version": "4.0.8",
   "description": "CLEVER Console & Video Wall Player",
   "main": "index.js",
   "license": "ISC",

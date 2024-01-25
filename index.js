@@ -388,6 +388,18 @@ try {
           serverWin: serverWin
         })
       })
+
+      //Switch server window or console window
+      //Update template id
+      ipcMain.on('app-switchwindow', (event, args) => {
+        if (mainWin.isFocused()) {
+          mainWin.blur()
+          serverWin.focus()
+        } else {
+          serverWin.blur()
+          mainWin.focus()
+        }
+      })
     })
   }
 } catch (ex) {
