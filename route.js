@@ -76,6 +76,29 @@
         }
     })
 
+    app.post('/api/pushFromConsole', async (req, res) => {
+        var templateData = req.body.templateData
+        try { //update template id in the config file
+            searchAndReplace(appdir + '/config.js', 'var tempid', `var tempid  = '${template_id}'; // insert template id`)
+                .then(async () => {
+                    if (config.ctrltype == 'console') return res.status(200).end('Not allowed')
+                    if (config.ctrltype == 'videowall') {
+                        await mainWindow.webContents
+                            .executeJavaScript(`localStorage.setItem("templateData", ${JSON.stringify(templateData)});`, true)
+                            .then(result => {
+                                console.log(result);
+                            })
+                        await mainWindow.loadURL('http://' + config.controller + '/preview/' + templateData.id + '/videowall' + '/true') // load template url from server to vw
+                    }
+                    log.info('PUSH CONSOLE : Pushed from console preset updated successfully.')
+                    return res.status(200).end('Push to console ok') //success loaded
+                })
+        } catch (error) {
+            console.error('Error:', error);
+            res.status(500).send('Internal Server Error');
+        }
+    })
+
     app.post('/api/push', async (req, res) => {
         var template_id = req.body.id
         try { //update template id in the config file
