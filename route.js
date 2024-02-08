@@ -82,7 +82,7 @@
             if (config.ctrltype == 'console') return res.status(200).end('Not allowed')
             if (config.ctrltype == 'videowall') {
                 await mainWindow.webContents
-                    .executeJavaScript(`localStorage.setItem("templateData", ${JSON.stringify(templateData)});`, true)
+                    .executeJavaScript(`window.localStorage.setItem("templateData", ${JSON.stringify(templateData)});`, true)
                     .then(result => {
                         console.log(result)
                     })
