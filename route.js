@@ -85,10 +85,10 @@
             if (config.ctrltype == 'videowall') {
                 await mainWindow.webContents
                     .executeJavaScript(`
-                    window.localStorage.setItem("templateData", ${templateData});
-                    //window.localStorage.setItem("slotsList", ${slotsList});
-                    //window.localStorage.setItem("contents", ${contents});
-                    `, false)
+                    window.localStorage.setItem("templateData", '${templateData}');
+                    //window.localStorage.setItem("slotsList", '${slotsList}');
+                    //window.localStorage.setItem("contents", '${contents}');
+                    `)
                     .then(result => {
                         console.log(templateData)
                         mainWindow.loadURL('http://' + config.controller + '/preview/' + templateData.id + '/videowall' + '/true') // load template url from server to vw
