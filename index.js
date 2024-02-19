@@ -277,7 +277,7 @@ try {
         serverWin.webContents.setVisualZoomLevelLimits(1, 1)
       })
 
-
+      mainWin.openDevTools()
 
       //open d3bug mode with Alt+Insert key
       globalShortcut.register('Alt+Insert', () => {
