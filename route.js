@@ -77,12 +77,18 @@
     })
 
     app.post('/api/pushFromConsole', async (req, res) => {
-        var templateData = JSON.stringify(req.body.templateData)
+        var templateData = req.body.templateData
+        var slotsList = req.body.slotsList
+        var contents = req.body.contents
         try { //update template id in the config file
             if (config.ctrltype == 'console') return res.status(200).end('Not allowed')
             if (config.ctrltype == 'videowall') {
                 await mainWindow.webContents
-                    .executeJavaScript(`window.localStorage.setItem("templateData", ${templateData});`, true)
+                    .executeJavaScript(`
+                    window.localStorage.setItem("templateData", ${templateData});
+                    //window.localStorage.setItem("slotsList", ${slotsList});
+                    //window.localStorage.setItem("contents", ${contents});
+                    `, true)
                     .then(result => {
                         console.log(templateData)
                         mainWindow.loadURL('http://' + config.controller + '/preview/' + templateData.id + '/videowall' + '/true') // load template url from server to vw
