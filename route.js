@@ -88,7 +88,7 @@
                     window.localStorage.setItem("templateData", ${templateData});
                     //window.localStorage.setItem("slotsList", ${slotsList});
                     //window.localStorage.setItem("contents", ${contents});
-                    `, true)
+                    `, false)
                     .then(result => {
                         console.log(templateData)
                         mainWindow.loadURL('http://' + config.controller + '/preview/' + templateData.id + '/videowall' + '/true') // load template url from server to vw
