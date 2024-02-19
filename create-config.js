@@ -211,7 +211,7 @@ class CreateConfig {
                 if (config.serialkey == hash) {
                     if (status == true) {
                         if (mainWin) {
-                            if (config.ctrltype == 'videowall') mainWin.loadURL('http://' + config.controller + '/preview/' + config.tempid + '/videowall')
+                            if (config.ctrltype == 'videowall') mainWin.loadURL('http://' + config.controller + '/preview/' + config.tempid + '/videowall/false')
                             if (config.ctrltype == 'console' && serverWin) {
                                 mainWin.loadURL('http://' + config.controller + '/preview/login')
                                 serverWin.show()
