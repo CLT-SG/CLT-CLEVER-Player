@@ -84,9 +84,9 @@
                 await mainWindow.webContents
                     .executeJavaScript(`window.localStorage.setItem("templateData", ${templateData});`, true)
                     .then(result => {
-                        console.log(result)
+                        console.log(templateData)
+                        mainWindow.loadURL('http://' + config.controller + '/preview/' + templateData.id + '/videowall' + '/true') // load template url from server to vw
                     })
-                await mainWindow.loadURL('http://' + config.controller + '/preview/' + templateData.id + '/videowall' + '/true') // load template url from server to vw
             }
             log.info('PUSH CONSOLE : Pushed from console preset updated successfully.')
             return res.status(200).end('Push to console ok') //success loaded
