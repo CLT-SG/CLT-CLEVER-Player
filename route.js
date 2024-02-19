@@ -91,7 +91,7 @@
                     `)
                     .then(result => {
                         console.log(templateData)
-                        mainWindow.loadURL('http://' + config.controller + '/preview/' + templateData.id + '/videowall' + '/true') // load template url from server to vw
+                        mainWindow.loadURL('http://' + config.controller + '/preview/' + config.tempid + '/videowall' + '/true') // load template url from server to vw
                     })
             }
             log.info('PUSH CONSOLE : Pushed from console preset updated successfully.')
