@@ -86,7 +86,7 @@
                     window.localStorage.setItem("templateData", '${templateData}');
                     `)
                     .then(result => {
-                        mainWindow.loadURL('http://' + config.controller + '/preview/' + config.tempid + '/videowall' + '/true') // load template url from server to vw
+                        mainWindow.loadURL('http://' + config.controller + '/preview/' + config.tempid + '/videowall/true') // load template url from server to vw
                     })
             }
             log.info('PUSH CONSOLE : Pushed from console preset updated successfully.')
@@ -102,8 +102,8 @@
         try { //update template id in the config file
             searchAndReplace(appdir + '/config.js', 'var tempid', `var tempid  = '${template_id}'; // insert template id`)
                 .then(async () => {
-                    if (config.ctrltype == 'videowall') await mainWindow.loadURL('http://' + config.controller + '/preview/' + template_id + '/videowall') // load template url from server to vw
-                    if (config.ctrltype == 'console') await mainWindow.loadURL('http://' + config.controller + '/preview/login') // load template url from server to console
+                    if (config.ctrltype == 'videowall') await mainWindow.loadURL('http://' + config.controller + '/preview/' + template_id + '/videowall/true') // load template url from server to vw
+                    if (config.ctrltype == 'console') return res.status(200).end('Not allowed')
                     log.info('PUSH CONSOLE : Template id updated successfully.')
                     return res.status(200).end('Push to console ok') //success loaded
                 })
