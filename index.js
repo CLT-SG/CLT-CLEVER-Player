@@ -1,6 +1,5 @@
 ﻿const {
   app,
-  dialog,
   BrowserWindow,
   globalShortcut,
   ipcMain,
@@ -317,8 +316,6 @@ try {
         mainWin.reload()
       })
 
-
-
       //restart app every 6days
       setTimeout(function () {
         app.exit()
@@ -360,7 +357,7 @@ try {
       })
 
       //reload app
-      ipcMain.on('app-reload', (event, logs) => {
+      ipcMain.on('app-reload', (event, args) => {
         CreateConfig.checkSerial(appdir, {
           mainWin: mainWin,
           serverWin: serverWin
@@ -368,12 +365,12 @@ try {
       })
 
       //reload main window
-      ipcMain.on('app-mainreload', (event, logs) => {
+      ipcMain.on('app-mainreload', (event, args) => {
         mainWin.reload()
       })
 
       //reset main window and preview
-      ipcMain.on('app-resetdefault', (event, logs) => {
+      ipcMain.on('app-resetdefault', (event, args) => {
         mainSes.clearStorageData()
       })
 
@@ -397,6 +394,21 @@ try {
           mainWin.focus()
         }
       })
+
+      //register shortkey events in ipc module
+      ipcMain.on('app-registerShortkey', (event, args) => {
+        globalShortcut.unregister(args.shortkey)
+        globalShortcut.register(args.shortkey, async () => {
+          await mainWin.webContents
+            .executeJavaScript(`
+                    window.localStorage.setItem("templateData", '${args.templateData}');
+                    `)
+            .then(result => {
+              if (config.ctrltype == 'console') mainWin.loadURL('http://' + config.controller + '/preview/login') // load template url from server to console
+            })
+        })
+      })
+
     })
   }
 } catch (ex) {
