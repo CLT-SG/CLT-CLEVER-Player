@@ -328,12 +328,6 @@ try {
         serverWin: serverWin
       })
 
-      //From Screen slot (webview)
-      ipcMain.on('appname-check', (event, args) => {
-        var appName = app.getName()
-        event.returnValue = appName
-      })
-
       //Exit app button (clever web)
       ipcMain.on('app-exit', (event, args) => {
         app.quit()
@@ -404,9 +398,14 @@ try {
                     window.localStorage.setItem("templateData", '${args.templateData}');
                     `)
             .then(result => {
-              if (config.ctrltype == 'console') mainWin.loadURL('http://' + config.controller + '/preview/login') // load template url from server to console
+              mainWin.webContents.send('app-shortkeyRefresh', args.shortkey)
             })
         })
+      })
+
+      //unregister shortkey events in ipc module
+      ipcMain.on('app-unregisterShortkey', (event, args) => {
+        globalShortcut.unregister(args.shortkey)
       })
 
     })
