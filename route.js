@@ -6,6 +6,7 @@
     const cors = require('cors')
     const bodyParser = require('body-parser')
     const si = require('systeminformation')
+    const { createCanvas, loadImage } = require('@napi-rs/canvas')
     const shutdown = require('electron-shutdown-command')
     const log = require('electron-log')
 
@@ -125,17 +126,20 @@
 
     app.get('/img/screenshot.png', async (req, res) => {
         try {
-            // Replace the following line with the logic to generate your dynamic image
-            const dynamicImageData = await takeScreenshot(); // Assuming takeScreenshot returns base64 image
-            // Remove the "data:image/png;base64," prefix if it's included in your base64 data
-            const base64WithoutPrefix = dynamicImageData.replace(/^data:image\/png;base64,/, '');
+            // Capture screenshots from all screens
+            const screenshots = await takeScreenshot();
+            // Merge the screenshots into a single image
+            const mergedImageData = await mergeScreenshots(screenshots);
 
-            // Send the appropriate content type in the response headers
+            // Remove the "data:image/png;base64," prefix from the base64 data
+            const base64WithoutPrefix = mergedImageData.replace(/^data:image\/png;base64,/, '');
+
+            // Set the appropriate content type in the response headers
             res.setHeader('Content-Type', 'image/png');
-
             // Send the binary image data directly in the response
             res.status(200).send(Buffer.from(base64WithoutPrefix, 'base64'));
         } catch (error) {
+            // Log any errors and send a 500 status code
             console.error('Error generating dynamic image:', error);
             res.status(500).send('Internal Server Error');
         }
@@ -196,34 +200,67 @@
         });
     }
 
-    // Handle taking screenshots
+    // Function to capture screenshots from all screens
     const takeScreenshot = () => {
         return new Promise(async (resolve, reject) => {
             try {
-                var {
-                    width,
-                    height
-                } = screen.getPrimaryDisplay().workAreaSize
+                // Get all displays (screens) connected to the system
+                const displays = screen.getAllDisplays();
 
-                height = Math.round(800 * (height / width))
+                // Calculate the total width of all displays combined
+                const width = displays.reduce((acc, display) => acc + display.workAreaSize.width, 0);
+                // Find the maximum height among all displays
+                const height = Math.max(...displays.map(display => display.workAreaSize.height));
+
+                // Get sources for all screens, specifying the desired thumbnail size
                 const sources = await desktopCapturer.getSources({
                     types: ['screen'],
                     thumbnailSize: {
                         width,
                         height
                     }
-                })
+                });
 
-                const source = sources.find(source => source.name === 'Entire screen')
-                if (source) {
-                    resolve(source.thumbnail.toDataURL()) // Invoke the callback with the image data
+                // Throw an error if no sources are found
+                if (sources.length === 0) {
+                    throw new Error('No screen sources found');
                 }
 
-                throw new Error('Source not found')
+                // Extract the base64-encoded image data URLs from the sources
+                const screenshots = sources.map(source => source.thumbnail.toDataURL());
 
+                // Resolve the promise with the array of image data URLs
+                resolve(screenshots);
             } catch (err) {
-                reject(err)
+                // Reject the promise if an error occurs
+                reject(err);
             }
-        })
-    }
+        });
+    };
+
+    // Function to merge multiple screenshots into a single image
+    const mergeScreenshots = async (screenshots) => {
+        // Get all displays to determine the total canvas size
+        const displays = screen.getAllDisplays();
+        const width = displays.reduce((acc, display) => acc + display.workAreaSize.width, 0);
+        const height = Math.max(...displays.map(display => display.workAreaSize.height));
+
+        // Create a new canvas with the combined width and maximum height
+        const canvas = createCanvas(width, height);
+        const ctx = canvas.getContext('2d');
+
+        // Variable to keep track of the current x-offset on the canvas
+        let xOffset = 0;
+        for (const screenshot of screenshots) {
+            // Load the screenshot image
+            const image = await loadImage(screenshot);
+            // Draw the image onto the canvas at the current x-offset
+            ctx.drawImage(image, xOffset, 0);
+            // Update the x-offset to the right edge of the current image
+            xOffset += image.width;
+        }
+
+        // Return the combined image as a base64-encoded data URL
+        return canvas.toDataURL();
+    };
 }())

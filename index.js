@@ -406,6 +406,7 @@ try {
       //unregister shortkey events in ipc module
       ipcMain.on('app-unregisterShortkey', (event, args) => {
         globalShortcut.unregister(args.shortkey)
+        globalShortcut.register(args.shortkey, () => {})
       })
 
     })
