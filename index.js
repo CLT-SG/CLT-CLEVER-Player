@@ -130,8 +130,8 @@ try {
     app.on('ready', () => {
       mainWin = new BrowserWindow({
         backgroundColor: '#302d2d',
-        //alwaysOnTop: true,
-        //autoHideMenuBar: true,
+        alwaysOnTop: true,
+        autoHideMenuBar: true,
         fullscreenable: false,
         resizable: false,
         moveable: false,
@@ -159,8 +159,8 @@ try {
         width: 0,
         height: 0,
         backgroundColor: '#302d2d',
-        //alwaysOnTop: true,
-        //autoHideMenuBar: true,
+        alwaysOnTop: true,
+        autoHideMenuBar: true,
         fullscreenable: false,
         resizable: false,
         moveable: false,
@@ -217,15 +217,15 @@ try {
       })
 
       //hide menu bar
-      //mainWin.setSkipTaskbar(true)
-      //mainWin.setAlwaysOnTop(true)
-      //mainWin.setMenuBarVisibility(false)
+      mainWin.setSkipTaskbar(true)
+      mainWin.setAlwaysOnTop(true)
+      mainWin.setMenuBarVisibility(false)
       Menu.setApplicationMenu(null)
-      //mainWin.setMenu(null)
-      //serverWin.setSkipTaskbar(true)
-      //serverWin.setAlwaysOnTop(true)
-      //serverWin.setMenuBarVisibility(false)
-      //serverWin.setMenu(null)
+      mainWin.setMenu(null)
+      serverWin.setSkipTaskbar(true)
+      serverWin.setAlwaysOnTop(true)
+      serverWin.setMenuBarVisibility(false)
+      serverWin.setMenu(null)
 
       //APPS READY 
       mainWin.on('ready-to-show', function () {
