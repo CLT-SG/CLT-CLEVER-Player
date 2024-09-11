@@ -104,6 +104,10 @@ try {
       log.warn('uncaughtException', err)
     })
 
+    //APP DISABLE PROXY
+    app.commandLine.appendSwitch('auto-detect', 'false');
+    app.commandLine.appendSwitch('no-proxy-server')
+
     //Plugin enabled
     //Pepper Flash
     // Specify flash path, supposing it is placed in the same directory with main.js.
