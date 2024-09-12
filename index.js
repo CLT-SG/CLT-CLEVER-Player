@@ -106,7 +106,7 @@ try {
 
     //APP DISABLE PROXY
     app.setProxy({
-      mode: 'direct'  // This will bypass any proxies and make direct connections
+      mode: 'system'  // This will bypass any proxies and make direct connections
     }, () => {
       console.log('Global proxy has been set to direct mode, no proxy will be used');
     });
