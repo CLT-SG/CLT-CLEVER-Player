@@ -232,10 +232,10 @@ class CreateConfig {
                             })
                             mainWin.focus()
                         }
-                        log.info('Server https://' + config.controller + '/preview/' + config.tempid + ' is online')
+                        log.info('Server http://' + config.controller + '/preview/' + config.tempid + ' is online')
                     } else {
                         mainWin.loadURL("file://" + __dirname + "/src/offline.html")
-                        log.warn('Server https://' + config.cleverweb + ' is offline')
+                        log.warn('Server http://' + config.cleverweb + ' is offline')
                     }
                 } else {
                     mainWin.loadURL("file://" + __dirname + "/src/activate.html")

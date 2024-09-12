@@ -105,8 +105,11 @@ try {
     })
 
     //APP DISABLE PROXY
-    app.commandLine.appendSwitch('auto-detect', 'false');
-    app.commandLine.appendSwitch('no-proxy-server')
+    app.setProxy({
+      mode: 'direct'  // This will bypass any proxies and make direct connections
+    }, () => {
+      console.log('Global proxy has been set to direct mode, no proxy will be used');
+    });
 
     //Plugin enabled
     //Pepper Flash
@@ -129,6 +132,7 @@ try {
 
     //Cache disabled
     app.commandLine.appendSwitch("disable-http-cache")
+
 
     //APP START UP CONFIG
     app.on('ready', () => {
