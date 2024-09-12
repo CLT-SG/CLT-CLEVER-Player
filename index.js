@@ -270,7 +270,8 @@ try {
 
 
       mainSes.setProxy({
-        proxyRules: 'direct://'
+        proxyRules: 'direct://',
+        proxyBypassRules: 'localhost, ' + config.controller + ', 127.0.0.1'
       }, () => {
         console.log('Global proxy has been set to direct mode, no proxy will be used');
       });
