@@ -106,7 +106,7 @@ try {
 
     //APP DISABLE PROXY
     app.setProxy({
-      proxyBypassRules: '192.168.1.115, localhost, 127.0.0.1'
+      proxyBypassRules: 'localhost, ' + config.controller + ', 127.0.0.1'
     }, () => {
       console.log('Global proxy has been set to direct mode, no proxy will be used');
     });
