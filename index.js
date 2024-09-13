@@ -268,7 +268,7 @@ try {
       //CLEAR CACHE AND COOKIE EVERY STARTUP
       var mainSes = mainWin.webContents.session
 
-
+      mainSes.ses.resolveHost({host: config.controller})
       mainSes.setProxy({
         proxyRules: 'direct://',
         proxyBypassRules: 'localhost, ' + config.controller + ', 127.0.0.1'
