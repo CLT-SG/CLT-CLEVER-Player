@@ -105,10 +105,11 @@ try {
     })
 
     //APP DISABLE PROXY
-    app.configureHostResolver({
-      secureDnsMode: 'off'
-    });
-  
+
+    // Disable CORS and other web security settings
+    app.commandLine.appendSwitch('disable-site-isolation-trials');
+    app.commandLine.appendSwitch('disable-web-security');
+    app.commandLine.appendSwitch('allow-running-insecure-content');
 
     //Plugin enabled
     //Pepper Flash
@@ -270,7 +271,6 @@ try {
 
       //CLEAR CACHE AND COOKIE EVERY STARTUP
       var mainSes = mainWin.webContents.session
-
       //ses.clearCache(() => {
       //  log.info("Cache cleared!")
       //})
