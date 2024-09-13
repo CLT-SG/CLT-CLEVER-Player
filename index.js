@@ -105,7 +105,10 @@ try {
     })
 
     //APP DISABLE PROXY
-
+    app.configureHostResolver({
+      secureDnsMode: 'off'
+    });
+  
 
     //Plugin enabled
     //Pepper Flash
@@ -268,13 +271,6 @@ try {
       //CLEAR CACHE AND COOKIE EVERY STARTUP
       var mainSes = mainWin.webContents.session
 
-      mainSes.ses.resolveHost({host: config.controller})
-      mainSes.setProxy({
-        proxyRules: 'direct://',
-        proxyBypassRules: 'localhost, ' + config.controller + ', 127.0.0.1'
-      }, () => {
-        console.log('Global proxy has been set to direct mode, no proxy will be used');
-      });
       //ses.clearCache(() => {
       //  log.info("Cache cleared!")
       //})
