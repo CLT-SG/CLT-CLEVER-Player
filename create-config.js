@@ -204,16 +204,16 @@ class CreateConfig {
         }
         await isReachable('http://' + config.controller, {
             timeout: 10000
-        }).then(async (status) => {
-            macaddress.one(async (err, mac)=> {
+        }).then((status) => {
+            macaddress.one(function (err, mac) {
                 const secret = 'Clt@2022';
                 const hash = Crypto.createHash('sha256', secret).update(mac).digest('hex');
                 if (config.serialkey == hash) {
                     if (status == true) {
                         if (mainWin) {
-                            if (config.ctrltype == 'videowall') await mainWin.loadURL('http://' + config.controller + '/preview/' + config.tempid + '/videowall/false')
+                            if (config.ctrltype == 'videowall') mainWin.loadURL('http://' + config.controller + '/preview/' + config.tempid + '/videowall/false')
                             if (config.ctrltype == 'console' && serverWin) {
-                                await mainWin.loadURL('http://' + config.controller + '/preview/login')
+                                mainWin.loadURL('http://' + config.controller + '/preview/login')
                                 serverWin.show()
                                 serverWin.setBounds({
                                     x: 0,
