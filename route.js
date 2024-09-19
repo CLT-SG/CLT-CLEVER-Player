@@ -25,7 +25,7 @@
     log.transports.file.file = path.join(logdir, `${datelog.toISOString().split('T')[0]}.log`)
 
     // Function to set the mainWindow reference
-    function setMainWindow(mainWin, desktopCapturerInstance, screenInstance) {
+    const setMainWindow = (mainWin, desktopCapturerInstance, screenInstance) => {
         mainWindow = mainWin
         desktopCapturer = desktopCapturerInstance
         screen = screenInstance

@@ -9,7 +9,7 @@
 } = require('electron')
 require('@electron/remote/main').initialize()
 
-const CreateConfig = require('./create-config') // create config class
+const CreateConfig = require('./create-config.js') // create config class
 const PortScanner = require('./port-scanner.js'); // prot scanner to find clever server
 
 const path = require('path')
