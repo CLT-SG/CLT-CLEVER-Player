@@ -136,6 +136,11 @@ try {
 
     //APP START UP CONFIG
     app.on('ready', () => {
+      
+      const {
+        setMainWindow
+      } = require('./route')
+      
       mainWin = new BrowserWindow({
         backgroundColor: '#302d2d',
         alwaysOnTop: true,
@@ -191,10 +196,6 @@ try {
 
       //enable remote webContents
       require('@electron/remote/main').enable(mainWin.webContents)
-
-      const {
-        setMainWindow
-      } = require('./route')
 
       setMainWindow(mainWin, desktopCapturer, screen)
 
