@@ -9,7 +9,7 @@
 } = require('electron')
 require('@electron/remote/main').initialize()
 
-const CreateConfig = require('./create-config.js') // create config class
+const CreateConfig = require('./create-config') // create config class
 const PortScanner = require('./port-scanner.js'); // prot scanner to find clever server
 
 const path = require('path')
@@ -136,9 +136,6 @@ try {
 
     //APP START UP CONFIG
     app.on('ready', () => {
-      
-      const setMainWindow = require('./route').setMainWindow
-
       mainWin = new BrowserWindow({
         backgroundColor: '#302d2d',
         alwaysOnTop: true,
@@ -194,6 +191,10 @@ try {
 
       //enable remote webContents
       require('@electron/remote/main').enable(mainWin.webContents)
+
+      const {
+        setMainWindow
+      } = require('./route')
 
       setMainWindow(mainWin, desktopCapturer, screen)
 
