@@ -202,42 +202,45 @@ class CreateConfig {
             console.error('Failed to load configuration. Check the config file.');
             return;
         }
-        var status = true
-        macaddress.one(function (err, mac) {
-            const secret = 'Clt@2022';
-            const hash = Crypto.createHash('sha256', secret).update(mac).digest('hex');
-            if (config.serialkey == hash) {
-                if (status == true) {
-                    if (mainWin) {
-                        if (config.ctrltype == 'videowall') mainWin.loadURL('http://' + config.controller + '/preview/' + config.tempid + '/videowall/false')
-                        if (config.ctrltype == 'console' && serverWin) {
-                            mainWin.loadURL('http://' + config.controller + '/preview/login')
-                            serverWin.show()
-                            serverWin.setBounds({
+        await isReachable('http://' + config.controller, {
+            timeout: 10000
+        }).then((status) => {
+            macaddress.one(function (err, mac) {
+                const secret = 'Clt@2022';
+                const hash = Crypto.createHash('sha256', secret).update(mac).digest('hex');
+                if (config.serialkey == hash) {
+                    if (status == true) {
+                        if (mainWin) {
+                            if (config.ctrltype == 'videowall') mainWin.loadURL('http://' + config.controller)
+                            if (config.ctrltype == 'console' && serverWin) {
+                                mainWin.loadURL('http://' + config.controller + '/preview/login')
+                                serverWin.show()
+                                serverWin.setBounds({
+                                    x: 0,
+                                    y: 0,
+                                    width: screen.getPrimaryDisplay().workArea.width,
+                                    height: screen.getPrimaryDisplay().workArea.height
+                                })
+                                serverWin.loadURL('http://' + config.controller)
+                                serverWin.blur()
+                            }
+                            mainWin.setBounds({
                                 x: 0,
                                 y: 0,
                                 width: screen.getPrimaryDisplay().workArea.width,
                                 height: screen.getPrimaryDisplay().workArea.height
                             })
-                            serverWin.loadURL('http://' + config.controller)
-                            serverWin.blur()
+                            mainWin.focus()
                         }
-                        mainWin.setBounds({
-                            x: 0,
-                            y: 0,
-                            width: screen.getPrimaryDisplay().workArea.width,
-                            height: screen.getPrimaryDisplay().workArea.height
-                        })
-                        mainWin.focus()
+                        log.info('Server http://' + config.controller + '/preview/' + config.tempid + ' is online')
+                    } else {
+                        mainWin.loadURL("file://" + __dirname + "/src/offline.html")
+                        log.warn('Server http://' + config.cleverweb + ' is offline')
                     }
-                    log.info('Server http://' + config.controller + '/preview/' + config.tempid + ' is online')
                 } else {
-                    mainWin.loadURL("file://" + __dirname + "/src/offline.html")
-                    log.warn('Server http://' + config.cleverweb + ' is offline')
+                    mainWin.loadURL("file://" + __dirname + "/src/activate.html")
                 }
-            } else {
-                mainWin.loadURL("file://" + __dirname + "/src/activate.html")
-            }
+            });
         });
     }
 }
