@@ -104,8 +104,6 @@ try {
       log.warn('uncaughtException', err)
     })
 
-    //APP DISABLE PROXY
-
     // Disable CORS and other web security settings
     app.commandLine.appendSwitch('disable-site-isolation-trials');
     app.commandLine.appendSwitch('disable-web-security');
