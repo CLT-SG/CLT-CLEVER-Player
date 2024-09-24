@@ -90,7 +90,7 @@ try {
     })
 
     //PREVENT HTTPS TO CHCEK CERTIFICED
-    app.disableHardwareAcceleration()
+    //app.disableHardwareAcceleration()
 
     //Ignore SSL check
     app.commandLine.appendSwitch('ignore-certificate-errors', true)
