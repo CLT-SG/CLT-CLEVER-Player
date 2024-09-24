@@ -1,154 +1,109 @@
 <!DOCTYPE html>
-<html xmlns="http://www.w3.org/1999/xhtml">
-
+<html lang="en">
 <head>
-  <link rel="stylesheet" type="text/css" href="assets/js/fullpagejs/fullpage.min.css" />
-  <link rel="stylesheet" type="text/css" href="assets/css/examples.css" />
-  <link rel="stylesheet" type="text/css" href="assets/css/fontawesome.min.css" />
-  <script>
-    if (typeof module === 'object') {
-      window.module = module
-      module = undefined
-    }
-  </script>
-  <style>
-    /* Style for our header texts
-    * --------------------------------------- */
-    h1 {
-      font-size: 5em;
-      font-family: arial, helvetica;
-      color: #fff;
-      margin: 0;
-      padding: 40px 0 0 0;
-    }
-
-    .intro p {
-      color: #fff;
-      padding: 40px 0 0 0;
-    }
-
-    .wrap {
-      margin-left: auto;
-      margin-right: auto;
-      width: 980px;
-      position: relative;
-      padding: 20px 0 20px 0;
-    }
-
-    .wrap h1 {
-      font-size: 2.3em;
-      color: #333;
-      padding: 30px 0 10px 0;
-    }
-
-    .wrap p {
-      font-size: 16px;
-      padding: 0 0 10px 0;
-    }
-
-    .box {
-      display: block;
-      background: #f2f2f2;
-      border: 1px solid #ccc;
-      padding: 20px;
-      margin: 20px 0;
-    }
-
-    /* Centered texts in each section
-    * --------------------------------------- */
-    .section {
-      text-align: center;
-    }
-
-
-    /* Bottom menu
-    * --------------------------------------- */
-    #infoMenu li a {
-      color: #000;
-    }
-
-    .btnSubmit {
-      border: none;
-      border-radius: 1.5rem;
-      padding: 1%;
-      width: 20%;
-      cursor: pointer;
-      background: #0062cc;
-      color: #fff;
-    }
-  </style>
-</head>
-
-<body>
-  <div id="fullpage">
-    <div class="section " id="section0">
-      <div class="slide">
-        <div class="off">
-          <img src="assets/media/off-cloud.png" class="offline-img slide-fwd-center" />
-          <h3>CLEVER Server is unavailable now.</h3>
-          <h3>Please perform the following checks:</h3>
-          <h4>1. Ensure that LAN cable on this controller or CLEVER server is securely connected.</h4>
-          <h4>2. Verify that CLEVER server is powered on.</h4>
-          <h4>3. Inspect the network switch to confirm that it is powered on.</h4>
-        </div>
-        <div>
-          <button type="button" class="btnSubmit" id="config">Configure</button>
-        </div>
-      </div>
-      <div class="slide">
-        <div class="off">
-          <video id="videads" data-autoplay autoplay muted controls="false" width="720px">
-            <source src="assets/media/videoplayback1.mp4" type="video/mp4" />
-          </video>
-        </div>
-      </div>
-      <div class="slide">
-        <div class="off">
-          <img src="assets/media/logo-left.jpg" class="logo-img" />
-          <h3>CLEVER - Console Controller.</h3>
-        </div>
-      </div>
-    </div>
-  </div>
-  <script type="text/javascript" src="assets/js/jquery.min.js"></script>
-  <script type="text/javascript" src="assets/js/fullpagejs/fullpage.min.js"></script>
-
-  <script type="text/javascript">
-    if (typeof (require) != "undefined") {
-      var {
-        ipcRenderer,
-        desktopCapturer
-      } = require("electron")
-      var remote = require('@electron/remote')
-      var path = require('path')
-    }
-    var slideTimeout
-    $('#config').on('click', function () {
-      remote.getCurrentWindow().loadURL('file://' + remote.app.getAppPath() + '/src/configure.html')
-    })
-    $('#fullpage').fullpage({
-      anchors: ['firstPage'],
-      sectionsColor: ['#ffffff'],
-      autoScrolling: false,
-      css3: true,
-      fitToSection: false,
-      scrollOverflow: false,
-      slidesNavigation: true,
-      slidesNavPosition: 'bottom',
-      afterRender: function () {
-        //on page load, start the slideshow
-        slideTimeout = setInterval(function () {
-          $.fn.fullpage.moveSlideRight()
-        }, 60000)
-      },
-      onLeave: function (index, direction) {
-        //after leaving section 1 (home) and going anywhere else, whether scrolling down to next section or clicking a nav link, this SHOULD stop the slideshow and allow you to navigate the site...but it does not
-        if (index == '1') {
-          clearInterval(slideTimeout)
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Technical Error Page</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
         }
-      }
-    })
-  </script>
-</body>
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #121212;
+            color: #e0e0e0;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 600px;
+            padding: 20px;
+            background-color: #1e1e1e;
+            border-radius: 10px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+            animation: fadeIn 1s ease-out;
+        }
+        .robot-icon {
+            width: 100px;
+            height: 100px;
+            margin-bottom: 20px;
+            animation: float 3s infinite ease-in-out;
+        }
+        h1 {
+            font-size: 2em;
+            margin-bottom: 15px;
+            color: #ffffff;
+        }
+        p {
+            font-size: 1.1em;
+            margin-bottom: 30px;
+            line-height: 1.6;
+        }
+        .troubleshoot-title {
+            font-size: 1.3em;
+            margin-top: 30px;
+            color: #f5ba13;
+        }
+        .troubleshoot-list {
+            text-align: left;
+            margin-top: 20px;
+        }
+        .troubleshoot-item {
+            display: flex;
+            align-items: center;
+            font-size: 1.1em;
+            margin-bottom: 15px;
+        }
+        .troubleshoot-item img {
+            width: 24px;
+            height: 24px;
+            margin-right: 10px;
+        }
+        .troubleshoot-item p {
+            margin: 0;
+            line-height: 1.5;
+            flex-grow: 1;
+        }
+        /* Animations */
+        @keyframes fadeIn {
+            0% { opacity: 0; transform: scale(0.9); }
+            100% { opacity: 1; transform: scale(1); }
+        }
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- SVG Icon for Robot -->
+        <img src="assets/media/offline.svg" alt="Robot Error" class="robot-icon">
+        <h1>Something is technically wrong.</h1>
+        <p>Thanks for noticing — CLEVER Server is unavailable now.</p>
 
+        <div class="troubleshoot-title">Please perform the following checks:</div>
+        <div class="troubleshoot-list">
+            <div class="troubleshoot-item">
+                <img src="assets/media/LAN.svg" alt="LAN Port Icon">
+                <p>Ensure that the LAN cable on this controller or CLEVER server is securely connected.</p>
+            </div>
+            <div class="troubleshoot-item">
+                <img src="assets/media/switch-off-on.svg" alt="Power Icon">
+                <p>Verify that the CLEVER server is powered on.</p>
+            </div>
+            <div class="troubleshoot-item">
+                <img src="assets/media/server-network.svg" alt="Network Switch Icon">
+                <p>Inspect the network switch to confirm that it is powered on.</p>
+            </div>
+        </div>
+    </div>
+</body>
 </html>
