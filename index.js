@@ -1,6 +1,7 @@
 ﻿const {
   app,
   BrowserWindow,
+  webContents,
   globalShortcut,
   ipcMain,
   desktopCapturer,
