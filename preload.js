@@ -6,7 +6,7 @@ window.path = require('path')
 window.os = require('os')
 var homedir = window.os.homedir()
 window.config = require(homedir + '/clever-console/config')
-window.logdir = window.path.normalize(homedir + '/clever-console/logs/')
+const date = require('date-and-time')
 const logdir = path.normalize(homedir + '/clever-console/logs/')
 
 window.log = require('electron-log')
