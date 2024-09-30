@@ -189,6 +189,12 @@ try {
 
       //enable remote webContents
       require('@electron/remote/main').enable(mainWin.webContents)
+      mainWin.webContents.on('did-attach-webview', () => {
+        const all = webContents.getAllWebContents()
+        all.forEach((item) => {
+          remoteMain.enable(item)
+        })
+      })
 
       const {
         setMainWindow
@@ -411,7 +417,7 @@ try {
       //unregister shortkey events in ipc module
       ipcMain.on('app-unregisterShortkey', (event, args) => {
         globalShortcut.unregister(args.shortkey)
-        globalShortcut.register(args.shortkey, () => {})
+        globalShortcut.register(args.shortkey, () => { })
       })
 
     })
