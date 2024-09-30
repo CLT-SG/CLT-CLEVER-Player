@@ -6,8 +6,7 @@ window.path = require('path')
 window.os = require('os')
 var homedir = window.os.homedir()
 window.config = require(homedir + '/clever-console/config')
-const date = require('date-and-time')
-const logdir = path.normalize(homedir + '/clever-console/logs/')
+window.logdir = window.path.normalize(homedir + '/clever-console/logs/')
 
 window.log = require('electron-log')
 window.xmljs = require('xml-js')
@@ -22,5 +21,6 @@ window.isReachable = require('is-reachable')
 window.macaddress = require('macaddress')
 window.QRCode = require('qrcode')
 
-const datelog = date.format(now, 'YYYY-MM-DD')
-log.transports.file.file = logdir + '/' + datelog + '.log'
+const now = new Date()
+const datelog = window.datetime.format(now, 'YYYY-MM-DD')
+log.transports.file.file = window.logdir + '/' + datelog + '.log'
