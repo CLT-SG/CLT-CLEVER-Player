@@ -193,7 +193,7 @@ try {
       mainWin.webContents.on('did-attach-webview', () => {
         const all = webContents.getAllWebContents()
         all.forEach((item) => {
-          remoteMain.enable(item)
+          require('@electron/remote/main').enable(item)
         })
       })
 
