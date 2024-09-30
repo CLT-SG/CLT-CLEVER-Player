@@ -190,7 +190,7 @@ try {
 
       //enable remote webContents
       require('@electron/remote/main').enable(mainWin.webContents)
-      mainWin.webContents.on('did-attach-webview', () => {
+      mainWin.webContents.on('will-attach-webview', () => {
         const all = webContents.getAllWebContents()
         all.forEach((item) => {
           require('@electron/remote/main').enable(item)
