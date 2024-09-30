@@ -23,4 +23,4 @@ window.QRCode = require('qrcode')
 
 const now = new Date()
 const datelog = window.datetime.format(now, 'YYYY-MM-DD')
-log.transports.file.file = window.logdir + '/' + datelog + '.log'
+window.log.transports.file.file = window.logdir + '/' + datelog + '.log'
