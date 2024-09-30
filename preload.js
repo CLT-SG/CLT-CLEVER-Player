@@ -21,6 +21,3 @@ window.isReachable = require('is-reachable')
 window.macaddress = require('macaddress')
 window.QRCode = require('qrcode')
 
-const now = new Date()
-const datelog = window.datetime.format(now, 'YYYY-MM-DD')
-window.log.transports.file.file = window.logdir + '/' + datelog + '.log'
