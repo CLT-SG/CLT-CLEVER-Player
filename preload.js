@@ -17,7 +17,6 @@ window.path = require('path')
 window.fs = require('fs')
 window.si = require('systeminformation')
 window.isReachable = require('is-reachable')
-
 window.macaddress = require('macaddress')
 window.QRCode = require('qrcode')
 

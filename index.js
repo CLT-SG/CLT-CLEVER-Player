@@ -23,6 +23,7 @@ var log = require('electron-log')
 const appdir = path.normalize(homedir + '/clever-console')
 const logdir = path.normalize(homedir + '/clever-console/logs')
 const now = new Date()
+const isReachable = require('is-reachable')
 const datelog = date.format(now, 'YYYY-MM-DD')
 log.transports.file.file = logdir + '/' + datelog + '.log'
 
@@ -421,6 +422,32 @@ try {
         globalShortcut.register(args.shortkey, () => { })
       })
 
+      ipcMain.handle('app-urlstatus', async () => {
+        return isReachable('http://' + config.controller, { timeout: 10000 })
+          .then((status) => {
+            const result = {
+              currentDateTime: getCurrentDateTime(), // Include current date and time
+              status: status ? 'online' : 'offline'  // Return 'online' or 'offline' based on the status
+            }
+            console.log(`[${result.currentDateTime}] Online status: ${result.status}`)
+            if (status) {
+              // Online: Perform necessary action
+              CreateConfig.checkSerial(appdir, {
+                mainWin: mainWin,
+                serverWin: serverWin
+              })
+            }
+            return result  // Return the object with date, time, and status
+          })
+          .catch((err) => {
+            const result = {
+              currentDateTime: getCurrentDateTime(), // Include current date and time in case of error
+              status: 'offline'  // Return 'offline' in case of error
+            }
+            console.error(`[${result.currentDateTime}] Error checking reachability:`, err)
+            return result  // Return the object with error and offline status
+          })
+      })
     })
   }
 } catch (ex) {
@@ -438,3 +465,8 @@ try {
     }
   });
 }
+
+// Function to format date and time using date-and-time library
+const getCurrentDateTime = () => {
+  return date.format(new Date(), 'YYYY/MM/DD HH:mm:ss'); // Format as 'YYYY/MM/DD HH:mm:ss'
+};

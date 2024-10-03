@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -10,6 +11,7 @@
             padding: 0;
             box-sizing: border-box;
         }
+
         body {
             font-family: 'Arial', sans-serif;
             background-color: #121212;
@@ -22,6 +24,7 @@
             height: 100vh;
             padding: 20px;
         }
+
         .container {
             max-width: 600px;
             padding: 20px;
@@ -30,58 +33,90 @@
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
             animation: fadeIn 1s ease-out;
         }
+
         .robot-icon {
             width: 100px;
             height: 100px;
             margin-bottom: 20px;
             animation: float 3s infinite ease-in-out;
         }
+
         h1 {
             font-size: 2em;
             margin-bottom: 15px;
             color: #ffffff;
         }
+
         p {
             font-size: 1.1em;
             margin-bottom: 30px;
             line-height: 1.6;
         }
+
         .troubleshoot-title {
             font-size: 1.3em;
             margin-top: 30px;
             color: #f5ba13;
         }
+
         .troubleshoot-list {
             text-align: left;
             margin-top: 20px;
         }
+
         .troubleshoot-item {
             display: flex;
             align-items: center;
             font-size: 1.1em;
             margin-bottom: 15px;
         }
+
         .troubleshoot-item img {
             width: 24px;
             height: 24px;
             margin-right: 10px;
         }
+
         .troubleshoot-item p {
             margin: 0;
             line-height: 1.5;
             flex-grow: 1;
         }
+
         /* Animations */
         @keyframes fadeIn {
-            0% { opacity: 0; transform: scale(0.9); }
-            100% { opacity: 1; transform: scale(1); }
+            0% {
+                opacity: 0;
+                transform: scale(0.9);
+            }
+
+            100% {
+                opacity: 1;
+                transform: scale(1);
+            }
         }
+
         @keyframes float {
-            0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-10px); }
+
+            0%,
+            100% {
+                transform: translateY(0);
+            }
+
+            50% {
+                transform: translateY(-10px);
+            }
         }
     </style>
+    <script>
+        try {
+            var ipcRenderer = window.ipcRenderer
+        } catch (e) {
+            console.log(e)
+        }
+    </script>
 </head>
+
 <body>
     <div class="container">
         <!-- SVG Icon for Robot -->
@@ -106,4 +141,30 @@
         </div>
     </div>
 </body>
+<script>
+    const checkServerStatus = async () => {
+        try {
+            const result = await ipcRenderer.invoke('app-urlstatus') // Await the result object
+            console.log(`[${result.currentDateTime}] Server status: ${result.status}`)
+
+            if (result.status === 'online') {
+                // Handle the online status (e.g., update UI)
+                console.log(`[${result.currentDateTime}] Server is online. Stopping checks.`)
+            } else {
+                // Handle the offline status and retry after 1 second
+                console.log(`[${result.currentDateTime}] Server is offline. Retrying...`)
+                setTimeout(checkServerStatus, 1000) // Retry after 1 second
+            }
+        } catch (error) {
+            const currentTime = window.datetime.format(new Date(), 'YYYY/MM/DD HH:mm:ss') // Fallback in case of error
+            console.error(`[${currentTime}] Error invoking server status:`, error)
+        }
+    }
+
+    // Start the initial status check when the page loads
+    window.onload = () => {
+        checkServerStatus()
+    }
+</script>
+
 </html>
