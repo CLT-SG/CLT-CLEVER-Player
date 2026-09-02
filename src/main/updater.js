@@ -47,6 +47,25 @@ function broadcast(getMainWindow) {
   }
 }
 
+function summarizeUpdateError(error) {
+  if (!error) {
+    return 'unknown error'
+  }
+  const raw = error.message || String(error)
+  const status = raw.match(/^(\d{3})\b/)
+  const url = raw.match(/url:\s+(\S+)/)
+  const parts = ['Update request failed']
+  if (status) {
+    parts.push(status[1])
+  }
+  if (url) {
+    parts.push(url[1].replace(/\\n.*/, ''))
+  } else if (error.code) {
+    parts.push(error.code)
+  }
+  return parts.join(' ')
+}
+
 function setStatus(partial, getMainWindow) {
   status = { ...status, ...partial }
   const { updaterLog } = getLoggers()
@@ -143,11 +162,12 @@ function setupUpdater({ getMainWindow }) {
       updaterLog.info('Checking for update')
       await autoUpdater.checkForUpdates()
     } catch (error) {
-      errorLog.error('Update error', error)
+      const summary = summarizeUpdateError(error)
+      errorLog.error('Update error', summary)
       notify({
         state: 'error',
         message: STATUS.FAILED,
-        error: error.message || String(error)
+        error: summary
       })
       scheduleRetry(checkForUpdates)
     }
@@ -214,11 +234,12 @@ function setupUpdater({ getMainWindow }) {
   })
 
   autoUpdater.on('error', (error) => {
-    errorLog.error('Update error', error)
+    const summary = summarizeUpdateError(error)
+    errorLog.error('Update error', summary)
     notify({
       state: 'error',
       message: STATUS.FAILED,
-      error: error && error.message ? error.message : String(error)
+      error: summary
     })
     scheduleRetry(checkForUpdates)
   })

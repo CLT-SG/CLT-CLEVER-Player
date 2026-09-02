@@ -135,7 +135,7 @@ If any step fails, the workflow fails. Installers are also uploaded as Actions a
 
 ## Auto-update
 
-Packaged builds use `electron-updater` with the GitHub provider (`clt-sg/clt-clever-player`).
+Packaged builds use `electron-updater` with the GitHub provider (`CLT-SG/CLT-CLEVER-Player`).
 
 ```text
 Application Starts
@@ -166,6 +166,13 @@ User-visible states:
 Failures never crash the player. The updater retries with exponential backoff (30s → 1h). After a successful download, the app auto-restarts after 30 seconds; the user can restart immediately from the overlay.
 
 Updates are only checked when the app is packaged. Development mode logs `Updates are disabled in development`.
+
+`CLT-CLEVER-Player` is a private GitHub repository. Unauthenticated `releases.atom` requests return 404, so installed players need one of:
+
+1. A public repository (or a public releases-only repo) in `build.publish`, **or**
+2. A read-only GitHub token available to the installed app as `GH_TOKEN` / `GITHUB_TOKEN` (contents: read). Do not bake a token into the installer.
+
+Until a release tag is published, `Update failed` is expected and is handled without crashing.
 
 ## GitHub Secrets
 

@@ -19,6 +19,7 @@
   "engines": {
     "node": ">=20.18.0"
   },
+  "desktopName": "com.clt.cleverplayer",
   "scripts": {
     "dev": "electron .",
     "start": "electron .",
@@ -58,7 +59,8 @@
   },
   "build": {
     "appId": "com.clt.cleverplayer",
-    "productName": "CLEVER - Player For Console & Video Wall",
+    "productName": "CLEVER Player",
+    "executableName": "cleverplayer",
     "copyright": "Copyright © Closed-Loop Technology Pte. Ltd",
     "artifactName": "Clever-Player-${os}-${arch}-${version}.${ext}",
     "extraResources": [
@@ -87,16 +89,16 @@
     },
     "publish": {
       "provider": "github",
-      "owner": "clt-sg",
-      "repo": "clt-clever-player",
-      "releaseType": "release"
+      "owner": "CLT-SG",
+      "repo": "CLT-CLEVER-Player",
+      "releaseType": "release",
+      "private": true
     },
     "generateUpdatesFilesForAllChannels": true,
     "win": {
       "target": "nsis",
       "icon": "build/icon/clt.ico",
       "artifactName": "Clever-Player Setup ${version}.${ext}",
-      "publisherName": "Closed-Loop Technology Pte. Ltd",
       "verifyUpdateCodeSignature": false
     },
     "nsis": {
@@ -119,8 +121,10 @@
       "category": "AudioVideo",
       "synopsis": "CLEVER Console & Video Wall Player",
       "desktop": {
-        "Name": "CLEVER Player",
-        "StartupWMClass": "cleverplayer"
+        "entry": {
+          "Name": "CLEVER Player",
+          "StartupWMClass": "cleverplayer"
+        }
       }
     },
     "mac": {

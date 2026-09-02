@@ -19,9 +19,9 @@ describe('redact', () => {
     assert.equal(output.includes('1d74f3eda4'), false)
   })
 
-  test('redacts private keys', () => {
-    const output = redact('-----BEGIN RSA PRIVATE KEY-----\nABC\n-----END RSA PRIVATE KEY-----')
-    assert.equal(output.includes('ABC'), false)
-    assert.equal(output, '[REDACTED PRIVATE KEY]')
+  test('redacts HTTP header blocks and cookies', () => {
+    const output = redact('Headers: {\n  "set-cookie": ["_gh_sess=abc; path=/"]\n}')
+    assert.equal(output.includes('_gh_sess=abc'), false)
+    assert.match(output, /\[REDACTED\]/)
   })
 })

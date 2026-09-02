@@ -20,6 +20,8 @@ const KEY_VALUE_PATTERN = new RegExp(
 
 const BEARER_PATTERN = /Bearer\s+[A-Za-z0-9._\-+/=]+/gi
 const PEM_PATTERN = /-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z ]*PRIVATE KEY-----/gi
+const COOKIE_PATTERN = /set-cookie["']?\s*:\s*\[[\s\S]*?\]/gi
+const HEADER_BLOCK_PATTERN = /Headers:\s*\{[\s\S]*?\n\}/gi
 
 function redact(value) {
   if (value == null) {
@@ -41,6 +43,8 @@ function redact(value) {
   return String(value)
     .replace(BEARER_PATTERN, 'Bearer [REDACTED]')
     .replace(PEM_PATTERN, '[REDACTED PRIVATE KEY]')
+    .replace(COOKIE_PATTERN, 'set-cookie: [REDACTED]')
+    .replace(HEADER_BLOCK_PATTERN, 'Headers: [REDACTED]')
     .replace(KEY_VALUE_PATTERN, '$1$2$3[REDACTED]')
 }
 
