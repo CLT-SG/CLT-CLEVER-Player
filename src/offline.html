@@ -4,6 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:;">
     <title>Technical Error Page</title>
     <style>
         * {
@@ -156,8 +157,9 @@
                 setTimeout(checkServerStatus, 1000) // Retry after 1 second
             }
         } catch (error) {
-            const currentTime = window.datetime.format(new Date(), 'YYYY/MM/DD HH:mm:ss') // Fallback in case of error
+            const currentTime = window.datetime ? window.datetime.format(new Date(), 'YYYY/MM/DD HH:mm:ss') : new Date().toISOString()
             console.error(`[${currentTime}] Error invoking server status:`, error)
+            setTimeout(checkServerStatus, 3000)
         }
     }
 

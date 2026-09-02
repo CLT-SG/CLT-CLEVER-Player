@@ -1,54 +1,66 @@
 {
   "name": "cleverplayer",
-  "version": "4.0.11",
+  "version": "4.1.0",
   "description": "CLEVER Console & Video Wall Player",
   "main": "index.js",
   "license": "ISC",
-  "scripts": {
-    "start": "electron .",
-    "win32": "electron-builder --win --ia32",
-    "win64": "electron-builder --win --x64",
-    "ubuntu32": "electron-builder --linux --ia32",
-    "ubuntu64": "electron-builder --linux --x64"
-  },
-  "homepage": "www.closed-loop.biz",
+  "homepage": "https://www.closed-loop.biz",
   "author": {
     "name": "Closed-Loop Technology Pte. Ltd",
     "email": "sales@closed-loop.biz"
   },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/clt-sg/clt-clever-player.git"
+  },
+  "bugs": {
+    "url": "https://github.com/clt-sg/clt-clever-player/issues"
+  },
+  "engines": {
+    "node": ">=20.18.0"
+  },
+  "scripts": {
+    "dev": "electron .",
+    "start": "electron .",
+    "lint": "eslint .",
+    "test": "node --test tests/**/*.test.js",
+    "build": "electron-builder --dir --publish never",
+    "package": "electron-builder --publish never",
+    "package:win": "electron-builder --win --x64 --publish never",
+    "package:win32": "electron-builder --win --ia32 --publish never",
+    "package:linux": "electron-builder --linux --x64 --publish never",
+    "package:mac": "electron-builder --mac --publish never",
+    "release": "electron-builder --publish always",
+    "postinstall": "electron-builder install-app-deps",
+    "win32": "npm run package:win32",
+    "win64": "npm run package:win",
+    "ubuntu32": "electron-builder --linux --ia32 --publish never",
+    "ubuntu64": "npm run package:linux"
+  },
   "dependencies": {
-    "@electron/remote": "^2.1.1",
-    "@napi-rs/canvas": "^0.1.53",
-    "@wuild/electron-notification": "^1.0.3",
-    "body-parser": "^1.20.2",
-    "browser-window": "^0.4.0",
-    "cors": "^2.8.5",
-    "crypto": "^1.0.1",
-    "date-and-time": "^3.1.0",
-    "electron-log": "^3.0.6",
+    "@napi-rs/canvas": "^1.0.8",
+    "cors": "^2.8.6",
+    "date-and-time": "^4.5.2",
+    "electron-log": "^5.4.4",
     "electron-shutdown-command": "^2.0.1",
-    "express": "^4.18.2",
-    "express-csp-header": "^5.2.1",
-    "ip": "^1.1.5",
-    "is-port-reachable": "^4.0.0",
-    "is-reachable": "^5.2.1",
-    "log-timestamp": "^0.3.0",
-    "macaddress": "^0.5.2",
-    "node-cmd": "^3.0.0",
-    "node-notifier": "^6.0.0",
-    "qrcode": "^1.5.0",
-    "remote": "^0.2.6",
-    "systeminformation": "^5.21.22",
+    "electron-updater": "^6.8.9",
+    "express": "^5.2.1",
+    "macaddress": "^0.5.4",
+    "qrcode": "^1.5.4",
+    "systeminformation": "^5.33.7",
     "xml-js": "^1.6.11"
   },
   "devDependencies": {
-    "electron": "^28.1.2",
-    "electron-builder": "^22.3.2",
-    "electron-builder-squirrel-windows": "^22.3.3"
+    "electron": "^44.1.1",
+    "electron-builder": "^26.15.3",
+    "eslint": "^10.9.1",
+    "globals": "^17.12.0"
   },
   "build": {
     "appId": "com.clt.cleverplayer",
     "productName": "CLEVER - Player For Console & Video Wall",
+    "copyright": "Copyright © Closed-Loop Technology Pte. Ltd",
+    "artifactName": "Clever-Player-${os}-${arch}-${version}.${ext}",
     "extraResources": [
       {
         "from": "./cert",
@@ -56,25 +68,70 @@
       }
     ],
     "files": [
-      "**/*"
+      "**/*",
+      "!pepflashplayer*",
+      "!tests/**/*",
+      "!.github/**/*",
+      "!src/hostping.js",
+      "!eslint.config.js",
+      "!.nvmrc"
+    ],
+    "asar": true,
+    "asarUnpack": [
+      "**/*.node",
+      "**/@napi-rs/canvas/**"
     ],
     "directories": {
-      "output": "build/release"
+      "output": "build/release",
+      "buildResources": "build"
     },
+    "publish": {
+      "provider": "github",
+      "owner": "clt-sg",
+      "repo": "clt-clever-player",
+      "releaseType": "release"
+    },
+    "generateUpdatesFilesForAllChannels": true,
     "win": {
       "target": "nsis",
-      "icon": "build/icon/clt.png"
+      "icon": "build/icon/clt.ico",
+      "artifactName": "Clever-Player Setup ${version}.${ext}",
+      "publisherName": "Closed-Loop Technology Pte. Ltd",
+      "verifyUpdateCodeSignature": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": true,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "CLEVER Player",
+      "runAfterFinish": true,
+      "deleteAppDataOnUninstall": false,
+      "artifactName": "Clever-Player Setup ${version}.${ext}"
     },
     "linux": {
-      "target": "deb",
+      "target": [
+        "deb",
+        "AppImage"
+      ],
       "icon": "build/icon/clt.png",
       "category": "AudioVideo",
-      "desktop": "cleverplayer"
+      "synopsis": "CLEVER Console & Video Wall Player",
+      "desktop": {
+        "Name": "CLEVER Player",
+        "StartupWMClass": "cleverplayer"
+      }
     },
     "mac": {
       "category": "public.app-category.utilities",
-      "target": "default",
-      "icon": "build/icon/clt.icns"
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "icon": "build/icon/clt.icns",
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false
     }
   }
 }

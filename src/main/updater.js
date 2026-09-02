@@ -1,0 +1,269 @@
+'use strict'
+
+const path = require('path')
+const { app, BrowserWindow, ipcMain } = require('electron')
+const { autoUpdater } = require('electron-updater')
+const { getLocalFileUrl } = require('./security')
+const { getLoggers } = require('./logger')
+
+const STATUS = {
+  IDLE: 'idle',
+  CHECKING: 'Checking for updates...',
+  AVAILABLE: 'Update available',
+  UNAVAILABLE: 'Already up to date',
+  DOWNLOADING: 'Downloading update...',
+  DOWNLOADED: 'Update downloaded',
+  RESTART: 'Restart to update',
+  FAILED: 'Update failed',
+  DEV: 'Updates are disabled in development'
+}
+
+const INITIAL_RETRY_MS = 30 * 1000
+const MAX_RETRY_MS = 60 * 60 * 1000
+const AUTO_RESTART_MS = 30 * 1000
+
+let status = {
+  state: STATUS.IDLE,
+  progress: 0,
+  version: null,
+  error: null,
+  message: STATUS.IDLE
+}
+
+let updateWindow = null
+let retryTimer = null
+let retryDelay = INITIAL_RETRY_MS
+let autoRestartTimer = null
+let initialized = false
+
+function broadcast(getMainWindow) {
+  const payload = { ...status }
+  const mainWindow = getMainWindow()
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('updater-status', payload)
+  }
+  if (updateWindow && !updateWindow.isDestroyed()) {
+    updateWindow.webContents.send('updater-status', payload)
+  }
+}
+
+function setStatus(partial, getMainWindow) {
+  status = { ...status, ...partial }
+  const { updaterLog } = getLoggers()
+  updaterLog.info('Update status', status.message, {
+    progress: status.progress,
+    version: status.version,
+    error: status.error
+  })
+  broadcast(getMainWindow)
+  updateOverlayVisibility()
+}
+
+function updateOverlayVisibility() {
+  if (!updateWindow || updateWindow.isDestroyed()) {
+    return
+  }
+  const visibleStates = [STATUS.AVAILABLE, STATUS.DOWNLOADING, STATUS.DOWNLOADED, STATUS.RESTART, STATUS.FAILED]
+  if (visibleStates.includes(status.message) || visibleStates.includes(status.state)) {
+    updateWindow.showInactive()
+  } else if (status.message === STATUS.UNAVAILABLE || status.message === STATUS.IDLE) {
+    updateWindow.hide()
+  }
+}
+
+function createUpdateWindow() {
+  if (updateWindow && !updateWindow.isDestroyed()) {
+    return updateWindow
+  }
+
+  updateWindow = new BrowserWindow({
+    width: 460,
+    height: 220,
+    show: false,
+    frame: false,
+    resizable: false,
+    fullscreenable: false,
+    skipTaskbar: true,
+    alwaysOnTop: true,
+    transparent: false,
+    backgroundColor: '#1e1e1e',
+    webPreferences: {
+      preload: path.join(app.getAppPath(), 'preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: false,
+      webviewTag: false,
+      devTools: false
+    }
+  })
+
+  updateWindow.setAlwaysOnTop(true, 'screen-saver')
+  updateWindow.loadURL(getLocalFileUrl('src/update.html'))
+  updateWindow.on('closed', () => {
+    updateWindow = null
+  })
+  return updateWindow
+}
+
+function scheduleRetry(checkForUpdates) {
+  if (retryTimer) {
+    clearTimeout(retryTimer)
+  }
+  retryTimer = setTimeout(() => {
+    checkForUpdates()
+  }, retryDelay)
+  retryDelay = Math.min(retryDelay * 2, MAX_RETRY_MS)
+}
+
+function setupUpdater({ getMainWindow }) {
+  const { updaterLog, errorLog } = getLoggers()
+
+  if (initialized) {
+    return getPublicApi()
+  }
+  initialized = true
+
+  autoUpdater.logger = updaterLog
+  autoUpdater.autoDownload = true
+  autoUpdater.autoInstallOnAppQuit = true
+  autoUpdater.allowDowngrade = false
+  autoUpdater.allowPrerelease = /-alpha|-beta/.test(app.getVersion())
+
+  const notify = (partial) => setStatus(partial, getMainWindow)
+
+  const checkForUpdates = async () => {
+    if (!app.isPackaged) {
+      notify({ state: 'dev', message: STATUS.DEV, progress: 0, error: null })
+      updaterLog.info('Skipping update check in development')
+      return status
+    }
+
+    try {
+      notify({ state: 'checking', message: STATUS.CHECKING, error: null })
+      updaterLog.info('Checking for update')
+      await autoUpdater.checkForUpdates()
+    } catch (error) {
+      errorLog.error('Update error', error)
+      notify({
+        state: 'error',
+        message: STATUS.FAILED,
+        error: error.message || String(error)
+      })
+      scheduleRetry(checkForUpdates)
+    }
+    return status
+  }
+
+  autoUpdater.on('checking-for-update', () => {
+    notify({ state: 'checking', message: STATUS.CHECKING, error: null })
+  })
+
+  autoUpdater.on('update-available', (info) => {
+    retryDelay = INITIAL_RETRY_MS
+    createUpdateWindow()
+    notify({
+      state: 'available',
+      message: STATUS.AVAILABLE,
+      version: info.version,
+      progress: 0,
+      error: null
+    })
+    updaterLog.info('Update available', info.version)
+  })
+
+  autoUpdater.on('update-not-available', (info) => {
+    retryDelay = INITIAL_RETRY_MS
+    notify({
+      state: 'unavailable',
+      message: STATUS.UNAVAILABLE,
+      version: info && info.version,
+      progress: 0,
+      error: null
+    })
+    updaterLog.info('Update not available')
+  })
+
+  autoUpdater.on('download-progress', (progress) => {
+    const percent = Math.round(progress.percent || 0)
+    notify({
+      state: 'downloading',
+      message: STATUS.DOWNLOADING,
+      progress: percent,
+      error: null
+    })
+    updaterLog.info('Download progress', `${percent}%`)
+  })
+
+  autoUpdater.on('update-downloaded', (info) => {
+    notify({
+      state: 'downloaded',
+      message: STATUS.RESTART,
+      version: info.version,
+      progress: 100,
+      error: null
+    })
+    updaterLog.info('Download completed', info.version)
+    updaterLog.info('Update downloaded')
+
+    if (autoRestartTimer) {
+      clearTimeout(autoRestartTimer)
+    }
+    autoRestartTimer = setTimeout(() => {
+      installUpdate()
+    }, AUTO_RESTART_MS)
+  })
+
+  autoUpdater.on('error', (error) => {
+    errorLog.error('Update error', error)
+    notify({
+      state: 'error',
+      message: STATUS.FAILED,
+      error: error && error.message ? error.message : String(error)
+    })
+    scheduleRetry(checkForUpdates)
+  })
+
+  function installUpdate() {
+    updaterLog.info('Update installed, restarting')
+    try {
+      autoUpdater.quitAndInstall(false, true)
+    } catch (error) {
+      errorLog.error('Failed to install update', error)
+      notify({
+        state: 'error',
+        message: STATUS.FAILED,
+        error: error.message || String(error)
+      })
+    }
+  }
+
+  ipcMain.handle('updater-status', () => status)
+  ipcMain.on('updater-install', () => {
+    installUpdate()
+  })
+  ipcMain.on('updater-check', () => {
+    checkForUpdates()
+  })
+
+  app.whenReady().then(() => {
+    createUpdateWindow()
+    setTimeout(() => {
+      checkForUpdates()
+    }, 5000)
+  })
+
+  function getPublicApi() {
+    return {
+      checkForUpdates,
+      installUpdate,
+      getStatus: () => ({ ...status })
+    }
+  }
+
+  return getPublicApi()
+}
+
+module.exports = {
+  setupUpdater,
+  STATUS
+}

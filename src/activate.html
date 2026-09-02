@@ -2,36 +2,11 @@
 <html lang="en">
 
 <head>
-  <title>eCLess Player</title>
-
-  <script>
-    if (typeof module === 'object') {
-      window.module = module
-      module = undefined
-    }
-  </script>
-
+  <title>CLEVER Player</title>
   <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
   <meta charset="utf-8">
-  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
-  <link rel="stylesheet" href="assets/css/style.css">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://api.whatsapp.com;">
   <script src="assets/js/jquery.min.js"></script>
-
-  <script>
-    try {
-      var ipcRenderer = window.ipcRenderer
-      var remote = window.remote
-      var convert = window.xmljs
-      var datetime = window.datetime
-      var path = window.path
-      var os = window.os
-      var config = window.config
-      var macaddress = window.macaddress
-      var QRCode = window.QRCode
-    } catch (e) {
-      console.log('error module : ' + e)
-    }
-  </script>
   <style>
     body {
       background-size: cover;
@@ -45,43 +20,6 @@
       color: black;
       font-family: 'Franklin Gothic Medium', 'Arial Narrow', Arial, sans-serif;
       font-size: 15px;
-    }
-
-    .clessinfo-parent {
-      width: 100%;
-      height: auto;
-    }
-
-    .title {
-      margin: 15px 0 15px 0;
-      font-size: 30px;
-    }
-
-    .desc {
-      text-transform: uppercase;
-      display: inline;
-      margin: 10px 0 10px 0;
-    }
-
-    .company {
-      margin: 15px 0 15px 0;
-    }
-
-    .result {
-      display: inline;
-      color: green;
-    }
-
-    .bottom {
-      position: absolute;
-      bottom: 0;
-      width: 100%;
-      background-color: rgb(0, 66, 0);
-      text-align: left;
-      vertical-align: top;
-      font-size: 5vw;
-      color: white;
-      white-space: pre-wrap;
     }
 
     .activate {
@@ -105,39 +43,32 @@
   <div class="activate" style="margin-top:5%;">Please contact us sales@closed-loop.biz for license key or</div>
   <div class="activate">Scan QR code below to request key</div>
   <div class="activate">Whatsapp</div>
-  <canvas id="canvas"></canvas>
+  <img id="qr" alt="Activation QR code" />
   <div class="activate mac">MAC Address :</div>
   <div class="activate" style="margin-top:5%;">Configure here</div>
   <button type="button" class="btnSubmit" id="config">Configure</button>
 </body>
 
 <script>
-  var canvas = document.getElementById('canvas')
-  macaddress.one(function (err, mac) {
-    $('.mac').text('MAC Address : ' + mac)
-    QRCode.toCanvas(canvas,
-      'https://api.whatsapp.com/send?phone=6588995538&text=Hello%2C%20pls%20generate%20my%20eCLESS%20key.%20Mac%20address%20%3D%20' +
-      mac +
-      '%20Thanks.',
-      function (error) {
-        if (error) console.error(error)
-        console.log('success!')
-      })
-  })
-  $('#config').on('click', function () {
-    remote.getCurrentWindow().loadURL('file://' + remote.app.getAppPath() + '/src/configure.html')
-  })
-  if (typeof (require) != "undefined") {
-    remote.getCurrentWindow().setBounds({
-      y: 0,
-      x: 0,
-      width: screen.width,
-      height: screen.height
-    })
-    remote.getCurrentWindow().center()
-  } else {
-    console.log('electron required')
+  async function renderActivation() {
+    try {
+      const mac = await window.cleverPlayer.getMac()
+      $('.mac').text('MAC Address : ' + mac)
+      const qrUrl = 'https://api.whatsapp.com/send?phone=6588995538&text=Hello%2C%20pls%20generate%20my%20eCLESS%20key.%20Mac%20address%20%3D%20' + encodeURIComponent(mac) + '%20Thanks.'
+      const dataUrl = await window.cleverPlayer.getQrDataUrl(qrUrl)
+      document.getElementById('qr').src = dataUrl
+    } catch (error) {
+      console.error(error)
+    }
   }
+
+  renderActivation()
+
+  $('#config').on('click', function () {
+    if (window.cleverPlayer) {
+      window.cleverPlayer.loadConfigure()
+    }
+  })
 </script>
 
 </html>

@@ -1,266 +1,256 @@
-(async function () {
-    const express = require('express')
-    const path = require('path')
-    const os = require('os')
-    const fs = require('fs')
-    const cors = require('cors')
-    const bodyParser = require('body-parser')
-    const si = require('systeminformation')
-    const { createCanvas, loadImage } = require('@napi-rs/canvas')
-    const shutdown = require('electron-shutdown-command')
-    const log = require('electron-log')
+'use strict'
 
-    const homedir = os.homedir()
-    const appdir = path.normalize(homedir + '/clever-console')
-    const logdir = path.join(appdir, 'logs')
-    const config = require(appdir + '/config')
-    const datelog = new Date()
-    const cpuInfoInterval = 10000 // Interval for updating CPU info in milliseconds
-    const port = 9000
+const express = require('express')
+const path = require('path')
+const fs = require('fs')
+const cors = require('cors')
+const { createCanvas, loadImage } = require('@napi-rs/canvas')
+const shutdown = require('electron-shutdown-command')
+const si = require('systeminformation')
+const { getAppDir, getConfigPath } = require('./src/main/paths')
+const { getLoggers } = require('./src/main/logger')
 
-    let mainWindow
-    var desktopCapturer
-    var screen
+const port = 9000
+let mainWindow
+let desktopCapturer
+let screen
+let server
 
-    log.transports.file.file = path.join(logdir, `${datelog.toISOString().split('T')[0]}.log`)
+function loadConfig() {
+  const configPath = getConfigPath()
+  try {
+    delete require.cache[require.resolve(configPath)]
+    return require(configPath)
+  } catch (error) {
+    const { errorLog } = getLoggers()
+    errorLog.warn('Local API could not load config', error)
+    return null
+  }
+}
 
-    // Function to set the mainWindow reference
-    function setMainWindow(mainWin, desktopCapturerInstance, screenInstance) {
-        mainWindow = mainWin
-        desktopCapturer = desktopCapturerInstance
-        screen = screenInstance
+function setMainWindow(mainWin, desktopCapturerInstance, screenInstance) {
+  mainWindow = mainWin
+  desktopCapturer = desktopCapturerInstance
+  screen = screenInstance
+}
+
+function searchAndReplace(filePath, searchLine, replacementLine) {
+  return new Promise((resolve, reject) => {
+    fs.readFile(filePath, 'utf-8', (err, data) => {
+      if (err) {
+        reject(err)
+        return
+      }
+      const lines = data.split('\n')
+      const modifiedLines = lines.map((line) => {
+        if (line.includes(searchLine)) {
+          return replacementLine
+        }
+        return line
+      })
+      fs.writeFile(filePath, modifiedLines.join('\n'), 'utf-8', (writeErr) => {
+        if (writeErr) {
+          reject(writeErr)
+        } else {
+          resolve()
+        }
+      })
+    })
+  })
+}
+
+const takeScreenshot = () => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      if (!screen || !desktopCapturer) {
+        throw new Error('Screen capture is not ready')
+      }
+      const displays = screen.getAllDisplays()
+      const width = displays.reduce((acc, display) => acc + display.workAreaSize.width, 0)
+      const height = Math.max(...displays.map((display) => display.workAreaSize.height))
+      const sources = await desktopCapturer.getSources({
+        types: ['screen'],
+        thumbnailSize: { width, height }
+      })
+      if (sources.length === 0) {
+        throw new Error('No screen sources found')
+      }
+      resolve(sources.map((source) => source.thumbnail.toDataURL()))
+    } catch (err) {
+      reject(err)
     }
+  })
+}
 
-    const app = express()
+const mergeScreenshots = async (screenshots) => {
+  const displays = screen.getAllDisplays()
+  const width = displays.reduce((acc, display) => acc + display.workAreaSize.width, 0)
+  const height = Math.max(...displays.map((display) => display.workAreaSize.height))
+  const canvas = createCanvas(width, height)
+  const ctx = canvas.getContext('2d')
+  let xOffset = 0
+  for (const screenshot of screenshots) {
+    const image = await loadImage(screenshot)
+    ctx.drawImage(image, xOffset, 0)
+    xOffset += image.width
+  }
+  return canvas.toDataURL()
+}
 
-    app.use(bodyParser.urlencoded({
-        extended: false
-    }))
-    app.use(bodyParser.json())
+function createApp() {
+  const api = express()
+  api.use(express.urlencoded({ extended: false }))
+  api.use(express.json({ limit: '2mb' }))
+  api.use(cors({
+    credentials: true,
+    origin: true
+  }))
 
-    app.use(cors({
-        credentials: true,
-        origin: true
-    }))
+  api.get('/api/restartapp', (req, res) => {
+    res.end('restarted')
+  })
 
-    app.get('/api/restartapp', (req, res) => {
-        res.end('restarted')
+  api.get('/api/reboot', (req, res) => {
+    res.end('rebooted')
+    shutdown.reboot({
+      force: true,
+      timerseconds: 0,
+      quitapp: true
     })
+  })
 
-    app.get('/api/reboot', (req, res) => {
-        res.end('rebooted')
-        shutdown.reboot({
-            force: true,
-            timerseconds: 0,
-            quitapp: true
-        })
+  api.get('/api/shutdown', (req, res) => {
+    res.end('shutdown')
+    shutdown.shutdown({
+      force: true,
+      timerseconds: 0,
+      quitapp: true
     })
+  })
 
-    app.get('/api/shutdown', (req, res) => {
-        res.end('shutdown')
-        shutdown.shutdown({
-            force: true,
-            timerseconds: 0,
-            quitapp: true
-        })
-    })
-
-    app.get('/api/deviceinfo', async (req, res) => {
-        try {
-            const data = await si.cpu()
-            const cpuInfo = JSON.stringify(data)
-            log.info('CPU Info:', cpuInfo)
-            res.end(cpuInfo)
-        } catch (error) {
-            log.warn('CPU Info Error:', error)
-            res.status(500).end('Internal Server Error')
-        }
-    })
-
-    app.post('/api/pushFromConsole', async (req, res) => {
-        var templateData = req.body.templateData
-        try { //update template id in the config file
-            if (config.ctrltype == 'console') return res.status(200).end('Not allowed')
-            if (config.ctrltype == 'videowall') {
-                await mainWindow.webContents
-                    .executeJavaScript(`
-                    window.localStorage.setItem("templateData", '${templateData}');
-                    `)
-                    .then(result => {
-                        mainWindow.loadURL('http://' + config.controller + '/preview/' + config.tempid + '/videowall/true') // load template url from server to vw
-                    })
-            }
-            log.info('PUSH CONSOLE : Pushed from console preset updated successfully.')
-            return res.status(200).end('Push to console ok') //success loaded
-        } catch (error) {
-            console.error('Error:', error);
-            res.status(500).send('Internal Server Error');
-        }
-    })
-
-    app.post('/api/push', async (req, res) => {
-        var template_id = req.body.id
-        try { //update template id in the config file
-            searchAndReplace(appdir + '/config.js', 'var tempid', `var tempid  = '${template_id}'; // insert template id`)
-                .then(async () => {
-                    if (config.ctrltype == 'videowall') await mainWindow.loadURL('http://' + config.controller + '/preview/' + template_id + '/videowall/false') // load template url from server to vw
-                    if (config.ctrltype == 'console') return res.status(200).end('Not allowed')
-                    log.info('PUSH CONSOLE : Template id updated successfully.')
-                    return res.status(200).end('Push to console ok') //success loaded
-                })
-        } catch (error) {
-            console.error('Error:', error);
-            res.status(500).send('Internal Server Error');
-        }
-    })
-
-    app.get('/api/getScreenshot', async (req, res) => {
-        try { //update template id in the config file
-            const image = await takeScreenshot()
-            return res.status(200).end(image)
-        } catch (error) {
-            console.error('Error:', error);
-            return res.status(500).send('Internal Server Error');
-        }
-    })
-
-    app.get('/img/screenshot.png', async (req, res) => {
-        try {
-            // Capture screenshots from all screens
-            const screenshots = await takeScreenshot();
-            // Merge the screenshots into a single image
-            const mergedImageData = await mergeScreenshots(screenshots);
-
-            // Remove the "data:image/png;base64," prefix from the base64 data
-            const base64WithoutPrefix = mergedImageData.replace(/^data:image\/png;base64,/, '');
-
-            // Set the appropriate content type in the response headers
-            res.setHeader('Content-Type', 'image/png');
-            // Send the binary image data directly in the response
-            res.status(200).send(Buffer.from(base64WithoutPrefix, 'base64'));
-        } catch (error) {
-            // Log any errors and send a 500 status code
-            console.error('Error generating dynamic image:', error);
-            res.status(500).send('Internal Server Error');
-        }
-    })
-
-    app.listen(port, () => {
-        log.info(`Express server listening on port ${port}`)
-        console.log(`Express server listening on port ${port}`)
-    })
-
-    setInterval(async () => {
-        try {
-            const data = await si.cpu()
-            const cpuInfo = JSON.stringify(data)
-            return cpuInfo
-        } catch (error) {
-            log.warn('CPU Info Update Error:', error)
-        }
-    }, cpuInfoInterval)
-
-
-    module.exports = {
-        app,
-        setMainWindow
+  api.get('/api/deviceinfo', async (req, res) => {
+    const { log, errorLog } = getLoggers()
+    try {
+      const data = await si.cpu()
+      log.info('CPU Info requested')
+      res.json(data)
+    } catch (error) {
+      errorLog.warn('CPU Info Error:', error)
+      res.status(500).end('Internal Server Error')
     }
+  })
 
-    function searchAndReplace(filePath, searchLine, replacementLine) {
-        return new Promise((resolve, reject) => {
-            fs.readFile(filePath, 'utf-8', (err, data) => {
-                if (err) {
-                    reject(err);
-                    return;
-                }
-
-                // Split the content into lines
-                const lines = data.split('\n');
-
-                // Search for the line to replace and modify the content
-                const modifiedLines = lines.map((line) => {
-                    if (line.includes(searchLine)) {
-                        // Replace the line
-                        return replacementLine;
-                    }
-                    return line;
-                });
-
-                // Join the modified lines back into a string
-                const modifiedContent = modifiedLines.join('\n');
-
-                fs.writeFile(filePath, modifiedContent, 'utf-8', (err) => {
-                    if (err) {
-                        reject(err);
-                    } else {
-                        resolve();
-                    }
-                });
-            });
-        });
+  api.post('/api/pushFromConsole', async (req, res) => {
+    const { log, errorLog, playerLog } = getLoggers()
+    const config = loadConfig()
+    const templateData = req.body && req.body.templateData
+    try {
+      if (!config) {
+        return res.status(500).end('Config missing')
+      }
+      if (config.ctrltype === 'console') {
+        return res.status(200).end('Not allowed')
+      }
+      if (config.ctrltype === 'videowall' && mainWindow && !mainWindow.isDestroyed()) {
+        const encoded = JSON.stringify(String(templateData ?? ''))
+        await mainWindow.webContents.executeJavaScript(
+          `window.localStorage.setItem("templateData", ${encoded});`
+        )
+        await mainWindow.loadURL('http://' + config.controller + '/preview/' + config.tempid + '/videowall/true')
+        playerLog.info('Playlist changed')
+      }
+      log.info('PUSH CONSOLE : Pushed from console preset updated successfully.')
+      return res.status(200).end('Push to console ok')
+    } catch (error) {
+      errorLog.error('Error:', error)
+      res.status(500).send('Internal Server Error')
     }
+  })
 
-    // Function to capture screenshots from all screens
-    const takeScreenshot = () => {
-        return new Promise(async (resolve, reject) => {
-            try {
-                // Get all displays (screens) connected to the system
-                const displays = screen.getAllDisplays();
+  api.post('/api/push', async (req, res) => {
+    const { log, errorLog, playerLog } = getLoggers()
+    const config = loadConfig()
+    const templateId = req.body && req.body.id
+    try {
+      if (!config) {
+        return res.status(500).end('Config missing')
+      }
+      await searchAndReplace(
+        path.join(getAppDir(), 'config.js'),
+        'var tempid',
+        `var tempid  = '${String(templateId).replace(/'/g, '')}'; // insert template id`
+      )
+      if (config.ctrltype === 'videowall' && mainWindow && !mainWindow.isDestroyed()) {
+        await mainWindow.loadURL('http://' + config.controller + '/preview/' + templateId + '/videowall/false')
+        playerLog.info('Playlist changed', templateId)
+      }
+      if (config.ctrltype === 'console') {
+        return res.status(200).end('Not allowed')
+      }
+      log.info('PUSH CONSOLE : Template id updated successfully.')
+      return res.status(200).end('Push to console ok')
+    } catch (error) {
+      errorLog.error('Error:', error)
+      res.status(500).send('Internal Server Error')
+    }
+  })
 
-                // Calculate the total width of all displays combined
-                const width = displays.reduce((acc, display) => acc + display.workAreaSize.width, 0);
-                // Find the maximum height among all displays
-                const height = Math.max(...displays.map(display => display.workAreaSize.height));
+  api.get('/api/getScreenshot', async (req, res) => {
+    const { errorLog } = getLoggers()
+    try {
+      const image = await takeScreenshot()
+      return res.status(200).json(image)
+    } catch (error) {
+      errorLog.error('Error:', error)
+      return res.status(500).send('Internal Server Error')
+    }
+  })
 
-                // Get sources for all screens, specifying the desired thumbnail size
-                const sources = await desktopCapturer.getSources({
-                    types: ['screen'],
-                    thumbnailSize: {
-                        width,
-                        height
-                    }
-                });
+  api.get('/img/screenshot.png', async (req, res) => {
+    const { errorLog } = getLoggers()
+    try {
+      const screenshots = await takeScreenshot()
+      const mergedImageData = await mergeScreenshots(screenshots)
+      const base64WithoutPrefix = mergedImageData.replace(/^data:image\/png;base64,/, '')
+      res.setHeader('Content-Type', 'image/png')
+      res.status(200).send(Buffer.from(base64WithoutPrefix, 'base64'))
+    } catch (error) {
+      errorLog.error('Error generating dynamic image:', error)
+      res.status(500).send('Internal Server Error')
+    }
+  })
 
-                // Throw an error if no sources are found
-                if (sources.length === 0) {
-                    throw new Error('No screen sources found');
-                }
+  api.get('/api/health', (req, res) => {
+    res.json({ ok: true, port })
+  })
 
-                // Extract the base64-encoded image data URLs from the sources
-                const screenshots = sources.map(source => source.thumbnail.toDataURL());
+  return api
+}
 
-                // Resolve the promise with the array of image data URLs
-                resolve(screenshots);
-            } catch (err) {
-                // Reject the promise if an error occurs
-                reject(err);
-            }
-        });
-    };
+const apiApp = createApp()
 
-    // Function to merge multiple screenshots into a single image
-    const mergeScreenshots = async (screenshots) => {
-        // Get all displays to determine the total canvas size
-        const displays = screen.getAllDisplays();
-        const width = displays.reduce((acc, display) => acc + display.workAreaSize.width, 0);
-        const height = Math.max(...displays.map(display => display.workAreaSize.height));
+function startServer() {
+  const { log, errorLog } = getLoggers()
+  if (server) {
+    return server
+  }
+  server = apiApp.listen(port, () => {
+    log.info(`Express server listening on port ${port}`)
+  })
+  server.on('error', (error) => {
+    if (error.code === 'EADDRINUSE') {
+      errorLog.warn(`Port ${port} already in use, local API not started`)
+      return
+    }
+    errorLog.error('Local API server error', error)
+  })
+  return server
+}
 
-        // Create a new canvas with the combined width and maximum height
-        const canvas = createCanvas(width, height);
-        const ctx = canvas.getContext('2d');
+startServer()
 
-        // Variable to keep track of the current x-offset on the canvas
-        let xOffset = 0;
-        for (const screenshot of screenshots) {
-            // Load the screenshot image
-            const image = await loadImage(screenshot);
-            // Draw the image onto the canvas at the current x-offset
-            ctx.drawImage(image, xOffset, 0);
-            // Update the x-offset to the right edge of the current image
-            xOffset += image.width;
-        }
-
-        // Return the combined image as a base64-encoded data URL
-        return canvas.toDataURL();
-    };
-}())
+module.exports = {
+  app: apiApp,
+  setMainWindow,
+  startServer
+}

@@ -1,472 +1,299 @@
-﻿const {
-  app,
-  BrowserWindow,
-  webContents,
-  globalShortcut,
-  ipcMain,
-  desktopCapturer,
-  screen,
-  Menu
-} = require('electron')
-require('@electron/remote/main').initialize()
+﻿'use strict'
 
-const CreateConfig = require('./create-config') // create config class
-const PortScanner = require('./port-scanner.js'); // prot scanner to find clever server
-
+const { app, BrowserWindow, globalShortcut, desktopCapturer, screen, Menu } = require('electron')
 const path = require('path')
 const fs = require('fs')
-const os = require('os')
-const homedir = os.homedir()
-const date = require('date-and-time')
-var log = require('electron-log')
 
-const appdir = path.normalize(homedir + '/clever-console')
-const logdir = path.normalize(homedir + '/clever-console/logs')
-const now = new Date()
-const isReachable = require('is-reachable')
-const datelog = date.format(now, 'YYYY-MM-DD')
-log.transports.file.file = logdir + '/' + datelog + '.log'
+const CreateConfig = require('./create-config')
+const PortScanner = require('./port-scanner')
+const { getAppDir, getConfigPath, ensureAppDirs } = require('./src/main/paths')
+const { setupLogging, logApplicationStart, getLoggers } = require('./src/main/logger')
+const { setupSecurity, getLocalFileUrl } = require('./src/main/security')
+const { setupCrashRecovery, reloadOrRecover, isIgnorableLoadError } = require('./src/main/recovery')
+const { setupUpdater } = require('./src/main/updater')
+const { registerIpcHandlers } = require('./src/main/ipc')
+const { isReachable } = require('./src/main/reachable')
 
+setupLogging()
+setupSecurity()
 
-if (!fs.existsSync(appdir)) {
-  log.info(appdir + ' not exist')
-  fs.mkdir(appdir, 0x755, (err) => {
-    if (err) {
-      log.warn(err)
-    }
-  })
-}
-if (!fs.existsSync(logdir)) {
-  log.info(logdir + ' not exist')
-  fs.mkdir(logdir, 0x755, (err) => {
-    if (err) {
-      log.warn(err)
-    }
-  })
-}
+const appDir = getAppDir()
+ensureAppDirs()
 
-//One instance process check
 let mainWin = null
 let serverWin = null
-
-//disable security warning
-delete process.env.ELECTRON_ENABLE_SECURITY_WARNINGS
-process.env.ELECTRON_DISABLE_SECURITY_WARNINGS = true
+let localApi = null
 
 const gotTheLock = app.requestSingleInstanceLock()
-
-try {
-  const config = require(appdir + '/config')
-
-  CreateConfig.checkVarExistingConfigFile(appdir)
-    .then(checkExist => {
-      if (!checkExist) {
-        CreateConfig.updateExistingConfigFile(ipaddress, appdir)
-        return
+if (!gotTheLock) {
+  app.exit(0)
+} else {
+  app.on('second-instance', () => {
+    const { log } = getLoggers()
+    if (serverWin && !serverWin.isDestroyed()) {
+      if (serverWin.isMinimized()) {
+        log.info('Server window restore process.')
+        serverWin.show()
       }
-    }).catch(e => {
-      log.warn(e)
-    })
-
-
-  // check if existing application is running then focus to application window
-  if (!gotTheLock) {
-    app.exit()
-  } else {
-    app.on('second-instance', (event, commandLine, workingDirectory) => {
-      // Someone tried to run a second instance, we should focus our window.
-      if (serverWin) {
-        if (serverWin.isMinimized()) {
-          log.info("Server window restore process.")
-          serverWin.show()
-        }
-        serverWin.focus()
-      }
-      if (mainWin) {
-        if (mainWin.isMinimized()) {
-          log.info("Main window restore process.")
-          mainWin.show()
-        }
-        mainWin.focus()
-      }
-    })
-
-    //PREVENT HTTPS TO CHCEK CERTIFICED
-    //app.disableHardwareAcceleration()
-
-    //Ignore SSL check
-    app.commandLine.appendSwitch('ignore-certificate-errors', true)
-    app.on('certificate-error', (event, webContents, url, error, certificate, callback) => {
-      event.preventDefault()
-      callback(true)
-    })
-
-    //APP CRASH REPORT TO LOG
-    app.on('uncaughtException', (err) => {
-      log.warn('uncaughtException', err)
-    })
-
-    // Disable CORS and other web security settings
-    app.commandLine.appendSwitch('disable-site-isolation-trials');
-    app.commandLine.appendSwitch('disable-web-security');
-    app.commandLine.appendSwitch('allow-running-insecure-content');
-
-    //Plugin enabled
-    //Pepper Flash
-    // Specify flash path, supposing it is placed in the same directory with main.js.
-    let pluginName
-    switch (process.platform) {
-      case 'win32':
-        pluginName = 'pepflashplayer32_32_0_0_238.dll'
-        break
-      case 'darwin':
-        pluginName = 'PepperFlashPlayer.plugin'
-        break
-      case 'linux':
-        pluginName = 'libpepflashplayer.so'
-        break
+      serverWin.focus()
     }
-    app.commandLine.appendSwitch('ppapi-flash-path', path.join(__dirname, pluginName))
-    // Optional: Specify flash version, for example, v17.0.0.169
-    app.commandLine.appendSwitch('ppapi-flash-version', '32.0.0.238')
-
-    //Cache disabled
-    app.commandLine.appendSwitch("disable-http-cache")
-
-
-    //APP START UP CONFIG
-    app.on('ready', () => {
-      mainWin = new BrowserWindow({
-        backgroundColor: '#302d2d',
-        //alwaysOnTop: true,
-        //autoHideMenuBar: true,
-        fullscreenable: false,
-        resizable: false,
-        moveable: false,
-        closable: false,
-        transparent: true,
-        frame: false,
-        zoomFactor: 1,
-        center: true,
-        show: false,
-        webPreferences: {
-          webviewTag: true,
-          plugins: true,
-          webSecurity: false,
-          enableRemoteModule: true,
-          devTools: true, //enable or disable dev tools
-          nodeIntegration: true,
-          contextIsolation: false,
-          preload: path.join(__dirname, 'preload.js')
-        }
-      })
-
-      serverWin = new BrowserWindow({
-        x: 0,
-        y: 0,
-        width: 0,
-        height: 0,
-        backgroundColor: '#302d2d',
-        //alwaysOnTop: true,
-        //autoHideMenuBar: true,
-        fullscreenable: false,
-        resizable: false,
-        moveable: false,
-        closable: false,
-        transparent: true,
-        frame: false,
-        zoomFactor: 1,
-        center: true,
-        show: false,
-        webPreferences: {
-          webviewTag: true,
-          plugins: true,
-          webSecurity: false,
-          enableRemoteModule: true,
-          devTools: true, //enable or disable dev tools
-          nodeIntegration: true,
-          contextIsolation: false
-        }
-      })
-
-      //enable remote webContents
-      require('@electron/remote/main').enable(mainWin.webContents)
-      mainWin.webContents.on('did-attach-webview', () => {
-        const all = webContents.getAllWebContents()
-        all.forEach((item) => {
-          require('@electron/remote/main').enable(item)
-        })
-      })
-
-      const {
-        setMainWindow
-      } = require('./route')
-
-      setMainWindow(mainWin, desktopCapturer, screen)
-
-      mainWin.on('closed', () => {
-        mainWin = null
-      })
-
-      serverWin.on('closed', () => {
-        serverWin = null
-      })
-
-      //APPS FAIL TO LOAD (WHITE SCREEN)
-      mainWin.webContents.on("did-fail-load", function (evt, errcode, errname) {
-        log.warn("Main window did-fail-load : " + errcode + "/ ", errname)
-        console.log("Main window did-fail-load : " + errcode + "/ ", errname)
-        if (errcode != -3 || errcode != -27) {
-          app.relaunch()
-          app.quit()
-        }
-      })
-      serverWin.webContents.on("did-fail-load", function (evt, errcode, errname) {
-        log.warn("Server window did-fail-load : " + errcode + "/ ", errname)
-        console.log("Server window did-fail-load : " + errcode + "/ ", errname)
-        if (errcode != -3 || errcode != -27) {
-          app.relaunch()
-          app.quit()
-        }
-      })
-
-      //hide menu bar
-      //mainWin.setSkipTaskbar(true)
-      //mainWin.setAlwaysOnTop(true)
-      //mainWin.setMenuBarVisibility(false)
-      Menu.setApplicationMenu(null)
-      mainWin.setMenu(null)
-      //serverWin.setSkipTaskbar(true)
-      //serverWin.setAlwaysOnTop(true)
-      //serverWin.setMenuBarVisibility(false)
-      serverWin.setMenu(null)
-
-      //APPS READY 
-      mainWin.on('ready-to-show', function () {
-        mainWin.setBackgroundColor('#242322')
+    if (mainWin && !mainWin.isDestroyed()) {
+      if (mainWin.isMinimized()) {
+        log.info('Main window restore process.')
         mainWin.show()
-      })
-
-      //APPS CRASH
-      mainWin.webContents.on('crashed', (e, killed) => {
-        log.warn("Main window crashed : " + e + " / Killed : " + killed)
-        app.relaunch()
-        app.quit()
-      })
-      serverWin.webContents.on('crashed', (e, killed) => {
-        log.warn("Server window crashed : " + e + " / Killed : " + killed)
-        app.relaunch()
-        app.quit()
-      })
-
-      //APPS FAIL TO LOAD (WHITE SCREEN)
-      mainWin.webContents.on("did-fail-load", function (evt, errcode, errname) {
-        log.warn("Main window did-fail-load : " + errcode + "/ ", errname)
-        if (errcode != -3 || errcode != -27) {
-          app.exit()
-          app.relaunch()
-        }
-      })
-      serverWin.webContents.on("did-fail-load", function (evt, errcode, errname) {
-        log.warn("Server window did-fail-load : " + errcode + "/ ", errname)
-        if (errcode != -3 || errcode != -27) {
-          app.exit()
-          app.relaunch()
-        }
-      })
-
-      //CLEAR CACHE AND COOKIE EVERY STARTUP
-      var mainSes = mainWin.webContents.session
-      //ses.clearCache(() => {
-      //  log.info("Cache cleared!")
-      //})
-
-      //Set visual zoom level to window
-      mainWin.webContents.on('did-finish-load', () => {
-        mainWin.webContents.setVisualZoomLevelLimits(1, 1)
-      })
-      serverWin.webContents.on('did-finish-load', () => {
-        serverWin.webContents.setVisualZoomLevelLimits(1, 1)
-      })
-
-      //open d3bug mode with Alt+Insert key
-      globalShortcut.register('Alt+Insert', () => {
-        mainWin.openDevTools()
-      })
-
-      //open configure page with Alt+Home key
-      globalShortcut.register('Alt+Home', () => {
-        mainWin.loadURL("file://" + __dirname + "/src/configure.html")
-      })
-
-      //Focus main or server window. This is quick link with Alt+PageUp key
-      globalShortcut.register('Alt+PageUp', () => {
-        if (mainWin.isFocused()) {
-          mainWin.blur()
-          serverWin.focus()
-        } else {
-          serverWin.blur()
-          mainWin.focus()
-        }
-      })
-
-      //Disable Alt+Tab
-      globalShortcut.register('Alt+Tab', () => {
-        return
-      })
-
-      //Exit application with Alt+Delete key
-      globalShortcut.register('Alt+Delete', () => {
-        app.exit()
-        log.warn('Application exit')
-      })
-
-      //refresh main window with Alt+F5
-      globalShortcut.register('Alt+F5', () => {
-        mainSes.clearCache(() => {
-          log.info("Cache cleared!")
-        })
-        mainWin.reload()
-      })
-
-      //restart app every 6days
-      setTimeout(function () {
-        app.exit()
-        app.relaunch()
-      }, 432000000) // 5 days in milliseconds
-
-      //check url status and open
-      CreateConfig.checkSerial(appdir, {
-        mainWin: mainWin,
-        serverWin: serverWin
-      })
-
-      //Exit app button (clever web)
-      ipcMain.on('app-exit', (event, args) => {
-        app.quit()
-      })
-
-      //Update template id
-      ipcMain.on('app-update-id', (event, args) => {
-        mainWin.reload()
-      })
-
-      //Exit app button (clever web)
-      ipcMain.on('app-savelog', (event, logs) => {
-        var logtype = logs[0]
-        var logtext = logs[1]
-        console.log(`${logtype} :  ${logtext}`)
-        if (logtype == 'warn') {
-          log.warn(logtext)
-        } else {
-          log.info(logtext)
-        }
-      })
-
-      //reload app
-      ipcMain.on('app-reload', (event, args) => {
-        CreateConfig.checkSerial(appdir, {
-          mainWin: mainWin,
-          serverWin: serverWin
-        })
-      })
-
-      //reload main window
-      ipcMain.on('app-mainreload', (event, args) => {
-        mainWin.reload()
-      })
-
-      //reset main window and preview
-      ipcMain.on('app-resetdefault', (event, args) => {
-        mainSes.clearStorageData()
-      })
-
-      //Save configuration app button (clever web)
-      ipcMain.on('app-configsave', async (event, args) => {
-        await CreateConfig.updateSpecificVarOnlyConfigFile(appdir, args)
-        CreateConfig.checkSerial(appdir, {
-          mainWin: mainWin,
-          serverWin: serverWin
-        })
-      })
-
-      //Switch server window or console window
-      //Update template id
-      ipcMain.on('app-switchwindow', (event, args) => {
-        if (mainWin.isFocused()) {
-          mainWin.blur()
-          serverWin.focus()
-        } else {
-          serverWin.blur()
-          mainWin.focus()
-        }
-      })
-
-      //register shortkey events in ipc module
-      ipcMain.on('app-registerShortkey', (event, args) => {
-        globalShortcut.unregister(args.shortkey)
-        globalShortcut.register(args.shortkey, async () => {
-          await mainWin.webContents
-            .executeJavaScript(`
-                    window.localStorage.setItem("templateData", '${args.templateData}');
-                    `)
-            .then(result => {
-              mainWin.webContents.send('app-shortkeyRefresh', args.shortkey)
-            })
-        })
-      })
-
-      //unregister shortkey events in ipc module
-      ipcMain.on('app-unregisterShortkey', (event, args) => {
-        globalShortcut.unregister(args.shortkey)
-        globalShortcut.register(args.shortkey, () => { })
-      })
-
-      ipcMain.handle('app-urlstatus', async () => {
-        return isReachable('http://' + config.controller, { timeout: 10000 })
-          .then((status) => {
-            const result = {
-              currentDateTime: getCurrentDateTime(), // Include current date and time
-              status: status ? 'online' : 'offline'  // Return 'online' or 'offline' based on the status
-            }
-            console.log(`[${result.currentDateTime}] Online status: ${result.status}`)
-            if (status) {
-              // Online: Perform necessary action
-              CreateConfig.checkSerial(appdir, {
-                mainWin: mainWin,
-                serverWin: serverWin
-              })
-            }
-            return result  // Return the object with date, time, and status
-          })
-          .catch((err) => {
-            const result = {
-              currentDateTime: getCurrentDateTime(), // Include current date and time in case of error
-              status: 'offline'  // Return 'offline' in case of error
-            }
-            console.error(`[${result.currentDateTime}] Error checking reachability:`, err)
-            return result  // Return the object with error and offline status
-          })
-      })
-    })
-  }
-} catch (ex) {
-  console.log(ex)
-  //get local ip address
-  var ipaddress
-
-  // Example usage
-  const portScanner = new PortScanner();
-  portScanner.scanIPRange().then((openPorts) => {
-    ipaddress = openPorts[0] || 'localhost'
-    if (!fs.existsSync(path.join(appdir, 'config.js'))) {
-      CreateConfig.createConfigFile(ipaddress, appdir, ex)
-      return
+      }
+      mainWin.focus()
     }
-  });
+  })
 }
 
-// Function to format date and time using date-and-time library
-const getCurrentDateTime = () => {
-  return date.format(new Date(), 'YYYY/MM/DD HH:mm:ss'); // Format as 'YYYY/MM/DD HH:mm:ss'
-};
+app.commandLine.appendSwitch('disable-http-cache')
+
+function getWindowOptions(show) {
+  return {
+    backgroundColor: '#302d2d',
+    fullscreenable: false,
+    resizable: false,
+    movable: false,
+    closable: false,
+    frame: false,
+    zoomFactor: 1,
+    center: true,
+    show,
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      nodeIntegrationInSubFrames: false,
+      sandbox: false,
+      webviewTag: true,
+      webSecurity: true,
+      allowRunningInsecureContent: false,
+      spellcheck: false,
+      devTools: true
+    }
+  }
+}
+
+function bindWindowGuards(win, name) {
+  const { log, errorLog, playerLog } = getLoggers()
+
+  win.webContents.on('did-fail-load', (_event, errorCode, errorDescription, validatedURL, isMainFrame) => {
+    errorLog.warn(`${name} did-fail-load`, { errorCode, errorDescription, validatedURL, isMainFrame })
+    if (!isMainFrame || isIgnorableLoadError(errorCode)) {
+      return
+    }
+    playerLog.warn('Content failed', { name, errorCode, errorDescription })
+    reloadOrRecover(win, `${name}-did-fail-load:${errorCode}`)
+  })
+
+  win.webContents.on('did-finish-load', () => {
+    playerLog.info('Content loaded', name)
+    win.webContents.setVisualZoomLevelLimits(1, 1).catch(() => {})
+  })
+
+  win.webContents.on('unresponsive', () => {
+    errorLog.warn(`${name} became unresponsive`)
+  })
+
+  win.webContents.on('responsive', () => {
+    log.info(`${name} became responsive again`)
+  })
+
+  win.webContents.on('preload-error', (_event, preloadPath, error) => {
+    errorLog.error(`${name} preload error`, preloadPath, error)
+  })
+}
+
+async function reloadPlayer() {
+  const { playerLog, errorLog } = getLoggers()
+  try {
+    await CreateConfig.checkSerial(appDir, { mainWin, serverWin })
+    playerLog.info('Player started')
+  } catch (error) {
+    errorLog.error('Failed to reload player', error)
+  }
+}
+
+function createWindows() {
+  const { log, playerLog } = getLoggers()
+
+  mainWin = new BrowserWindow(getWindowOptions(false))
+  serverWin = new BrowserWindow({
+    ...getWindowOptions(false),
+    x: 0,
+    y: 0,
+    width: 0,
+    height: 0
+  })
+
+  bindWindowGuards(mainWin, 'Main window')
+  bindWindowGuards(serverWin, 'Server window')
+
+  mainWin.on('closed', () => {
+    playerLog.info('Player stopped')
+    mainWin = null
+  })
+  serverWin.on('closed', () => {
+    serverWin = null
+  })
+
+  Menu.setApplicationMenu(null)
+  mainWin.setMenu(null)
+  serverWin.setMenu(null)
+
+  mainWin.on('ready-to-show', () => {
+    log.info('Application ready')
+    mainWin.setBackgroundColor('#242322')
+    mainWin.show()
+  })
+
+  try {
+    localApi = require('./route')
+    localApi.setMainWindow(mainWin, desktopCapturer, screen)
+  } catch (error) {
+    getLoggers().errorLog.error('Failed to start local API server', error)
+  }
+}
+
+function registerShortcuts() {
+  const { log } = getLoggers()
+
+  globalShortcut.register('Alt+Insert', () => {
+    if (mainWin && !mainWin.isDestroyed()) {
+      mainWin.webContents.openDevTools({ mode: 'detach' })
+    }
+  })
+
+  globalShortcut.register('Alt+Home', () => {
+    if (mainWin && !mainWin.isDestroyed()) {
+      mainWin.loadURL(getLocalFileUrl('src/configure.html'))
+    }
+  })
+
+  globalShortcut.register('Alt+PageUp', () => {
+    if (!mainWin || !serverWin) {
+      return
+    }
+    if (mainWin.isFocused()) {
+      mainWin.blur()
+      serverWin.focus()
+    } else {
+      serverWin.blur()
+      mainWin.focus()
+    }
+  })
+
+  globalShortcut.register('Alt+Delete', () => {
+    log.warn('Application exit')
+    app.exit(0)
+  })
+
+  globalShortcut.register('Alt+F5', async () => {
+    if (!mainWin || mainWin.isDestroyed()) {
+      return
+    }
+    await mainWin.webContents.session.clearCache()
+    log.info('Cache cleared!')
+    mainWin.reload()
+  })
+}
+
+async function bootstrapWithConfig() {
+  const { log, errorLog } = getLoggers()
+  CreateConfig.checkVarExistingConfigFile(appDir)
+    .then(async (checkExist) => {
+      if (!checkExist) {
+        const scanner = new PortScanner()
+        const openPorts = await scanner.scanIPRange()
+        const ipaddress = openPorts[0] || 'localhost'
+        await CreateConfig.updateExistingConfigFile(ipaddress, appDir)
+      }
+    })
+    .catch((error) => {
+      errorLog.warn(error)
+    })
+
+  createWindows()
+  registerIpcHandlers({
+    getWindows: () => ({ mainWin, serverWin }),
+    reloadPlayer
+  })
+  registerShortcuts()
+  setupUpdater({
+    getMainWindow: () => mainWin
+  })
+
+  setTimeout(() => {
+    log.info('Scheduled maintenance restart')
+    app.relaunch()
+    app.exit(0)
+  }, 432000000)
+
+  await reloadPlayer()
+}
+
+async function bootstrapWithoutConfig(error) {
+  const { log, errorLog } = getLoggers()
+  errorLog.warn('Config missing or invalid, scanning for CLEVER server', error && error.message)
+  const scanner = new PortScanner()
+  const openPorts = await scanner.scanIPRange()
+  const ipaddress = openPorts[0] || 'localhost'
+  if (!fs.existsSync(getConfigPath())) {
+    await CreateConfig.createConfigFile(ipaddress, appDir, error)
+  } else {
+    log.info('Config file already exists, launching')
+    app.relaunch()
+    app.exit(0)
+  }
+}
+
+app.whenReady().then(async () => {
+  const { errorLog } = getLoggers()
+  logApplicationStart(app)
+  setupCrashRecovery(() => ({ mainWin, serverWin }))
+
+  try {
+    require(getConfigPath())
+    await bootstrapWithConfig()
+  } catch (error) {
+    if (!fs.existsSync(getConfigPath())) {
+      await bootstrapWithoutConfig(error)
+    } else {
+      errorLog.error('Invalid configuration file, opening configure page', error)
+      createWindows()
+      registerIpcHandlers({
+        getWindows: () => ({ mainWin, serverWin }),
+        reloadPlayer
+      })
+      registerShortcuts()
+      setupUpdater({ getMainWindow: () => mainWin })
+      if (mainWin && !mainWin.isDestroyed()) {
+        mainWin.loadURL(getLocalFileUrl('src/configure.html'))
+        mainWin.show()
+      }
+    }
+  }
+
+  app.on('activate', () => {
+    if (BrowserWindow.getAllWindows().length === 0) {
+      bootstrapWithConfig().catch((err) => errorLog.error(err))
+    }
+  })
+})
+
+app.on('before-quit', () => {
+  const { log } = getLoggers()
+  log.info('Application closed')
+  globalShortcut.unregisterAll()
+})
+
+app.on('window-all-closed', () => {
+  if (process.platform !== 'darwin') {
+    app.quit()
+  }
+})
+
+module.exports = {
+  isReachable
+}
