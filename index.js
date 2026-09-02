@@ -191,6 +191,22 @@ try {
 
       //enable remote webContents
       require('@electron/remote/main').enable(mainWin.webContents)
+
+      const configureGuestWebview = (webPreferences) => {
+        // Guest <webview> pages default to webSecurity=true even when the
+        // parent BrowserWindow disables it. Keep guests able to load
+        // third-party WebCast URLs (Google Slides, etc.).
+        webPreferences.webSecurity = false
+        webPreferences.allowRunningInsecureContent = true
+      }
+
+      mainWin.webContents.on('will-attach-webview', (event, webPreferences) => {
+        configureGuestWebview(webPreferences)
+      })
+      serverWin.webContents.on('will-attach-webview', (event, webPreferences) => {
+        configureGuestWebview(webPreferences)
+      })
+
       mainWin.webContents.on('did-attach-webview', () => {
         const all = webContents.getAllWebContents()
         all.forEach((item) => {
