@@ -126,7 +126,28 @@ DEBUG_MODE=true
 ENABLE_DEVTOOLS=true
 ```
 
-When `DEV_MODE=true`, the player runs in a normal window instead of kiosk / fullscreen so tools like DevTools are usable.
+When `DEV_MODE=true`, auto-update is skipped and DevTools can be enabled with `ENABLE_DEVTOOLS=true`. Window size is unchanged: the player still uses the display work area unless `FULLSCREEN` or `KIOSK_MODE` is set.
+
+### Window size
+
+By default the player matches pre-`config.ini` releases: a frameless window sized to the primary display **work area** (DIP pixels, `x=0,y=0`). That stays inside the visible desktop, including at 125% / 150% / 175% Windows scaling.
+
+Do not turn on kiosk or fullscreen unless you want Electron's full-display modes:
+
+```ini
+[DISPLAY]
+ALWAYS_ON_TOP=true
+FULLSCREEN=false
+KIOSK_MODE=false
+```
+
+| Key | Default | Effect |
+| --- | --- | --- |
+| `ALWAYS_ON_TOP` | `true` | Keep the player above other windows and the taskbar. Does not change width or height. |
+| `FULLSCREEN` | `false` | Electron fullscreen. Off by default so migrated installs keep work-area bounds. |
+| `KIOSK_MODE` | `false` | Electron kiosk (full display, including over the taskbar). Can extend past the right edge on scaled displays. Leave `false` to preserve legacy sizing. |
+
+`DEV_MODE` does not change window dimensions.
 
 ### Production example
 
@@ -141,6 +162,11 @@ HOST=server.domain.com
 CONTROLLER_PORT=80
 HEARTBEAT_INTERVAL=30
 SYNC_INTERVAL=60
+
+[DISPLAY]
+ALWAYS_ON_TOP=true
+FULLSCREEN=false
+KIOSK_MODE=false
 
 [LOGGING]
 LOG_LEVEL=INFO
@@ -355,7 +381,7 @@ Logged events include application lifecycle, Electron/OS versions, update states
 | `latest.yml` missing | Release workflow failed, or Linux/mac assets were published without the Windows job |
 | Tag rejected | `v1.2.3` must equal `package.json` `"version": "1.2.3"` |
 | Port 9000 in use | Local control API did not bind; see `application.log` |
-| DevTools | Alt+Insert |
+| Window hangs off the right edge | Leave `KIOSK_MODE=false` and `FULLSCREEN=false`. The player uses the work area, not the full display. Restart after editing `config.ini` |
 
 ## Security notes
 

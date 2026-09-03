@@ -17,6 +17,7 @@ const {
 } = require('../src/main/config-schema')
 const configService = require('../src/main/config-service')
 const { isValidAccelerator, isPrivateHost, isValidHost } = require('../src/main/config-template')
+const { getLegacyWorkAreaBounds, resolveWindowChrome } = require('../src/main/window-bounds')
 const { normalizeUrl, isReachable } = require('../src/main/reachable')
 
 function sampleConfigJs(host = '10.0.0.5') {
@@ -135,6 +136,10 @@ describe('config.js migration', () => {
       assert.match(ini, /HOST=10\.8\.8\.8/)
       assert.match(ini, /TEMPLATE_ID=42/)
       assert.match(ini, /CTRL_TYPE=videowall/)
+      assert.match(ini, /KIOSK_MODE=false/)
+      assert.match(ini, /FULLSCREEN=false/)
+      assert.equal(snapshot.values.KIOSK_MODE, false)
+      assert.equal(snapshot.values.FULLSCREEN, false)
     } finally {
       fs.rmSync(appDir, { recursive: true, force: true })
       configService.resetForTests()
@@ -164,6 +169,56 @@ describe('config.js migration', () => {
       fs.rmSync(appDir, { recursive: true, force: true })
       configService.resetForTests()
     }
+  })
+})
+
+describe('window bounds', () => {
+  test('uses work-area DIP size, not the full display size', () => {
+    const display = {
+      size: { width: 1920, height: 1080 },
+      bounds: { x: 0, y: 0, width: 1920, height: 1080 },
+      workArea: { x: 0, y: 0, width: 1536, height: 824 }
+    }
+    assert.deepEqual(getLegacyWorkAreaBounds(display), {
+      x: 0,
+      y: 0,
+      width: 1536,
+      height: 824
+    })
+  })
+
+  test('floors fractional work-area sizes from display scaling', () => {
+    const display = {
+      size: { width: 1920, height: 1080 },
+      workArea: { x: 0, y: 0, width: 1536.8, height: 864.2 }
+    }
+    assert.deepEqual(getLegacyWorkAreaBounds(display), {
+      x: 0,
+      y: 0,
+      width: 1536,
+      height: 864
+    })
+  })
+
+  test('defaults keep kiosk and fullscreen off after migration', () => {
+    const chrome = resolveWindowChrome(getDefaultSections().DISPLAY)
+    assert.equal(chrome.kiosk, false)
+    assert.equal(chrome.fullscreen, false)
+    assert.equal(chrome.fullscreenable, false)
+    assert.equal(chrome.alwaysOnTop, true)
+  })
+
+  test('DEV_MODE does not enable kiosk', () => {
+    const chrome = resolveWindowChrome({ DEV_MODE: true, KIOSK_MODE: false, FULLSCREEN: false })
+    assert.equal(chrome.kiosk, false)
+    assert.equal(chrome.fullscreen, false)
+  })
+
+  test('explicit kiosk wins over fullscreen', () => {
+    const chrome = resolveWindowChrome({ KIOSK_MODE: true, FULLSCREEN: true })
+    assert.equal(chrome.kiosk, true)
+    assert.equal(chrome.fullscreen, false)
+    assert.equal(chrome.fullscreenable, true)
   })
 })
 

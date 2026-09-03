@@ -9,6 +9,7 @@ const { getLocalFileUrl } = require('./src/main/security')
 const { getLoggers } = require('./src/main/logger')
 const { getAppDir } = require('./src/main/paths')
 const configService = require('./src/main/config-service')
+const { getLegacyWorkAreaBounds, resolveWindowChrome } = require('./src/main/window-bounds')
 
 class CreateConfig {
   static async createConfigFile(ipAddress, appDir, ex) {
@@ -171,23 +172,23 @@ function applyWindowMode(win, values) {
   if (!win || win.isDestroyed()) {
     return
   }
-  const workArea = screen.getPrimaryDisplay().workArea
-  win.setBounds({
-    x: 0,
-    y: 0,
-    width: workArea.width,
-    height: workArea.height
-  })
+  const chrome = resolveWindowChrome(values)
+  const bounds = getLegacyWorkAreaBounds(screen.getPrimaryDisplay())
   try {
-    if (values && values.DEV_MODE) {
-      win.setKiosk(false)
-      win.setFullScreen(false)
-    } else {
+    if (chrome.kiosk) {
       win.setKiosk(true)
+      return
     }
+    win.setKiosk(false)
+    if (chrome.fullscreen) {
+      win.setFullScreen(true)
+      return
+    }
+    win.setFullScreen(false)
   } catch {
     // Some platforms reject kiosk/fullscreen changes while the window is hidden.
   }
+  win.setBounds(bounds)
 }
 
 module.exports = CreateConfig

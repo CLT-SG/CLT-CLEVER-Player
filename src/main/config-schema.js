@@ -26,6 +26,8 @@ const SCHEMA = [
   { section: 'SERVER', key: 'SYNC_INTERVAL', type: 'integer', min: 5, max: 3600, default: 60, comment: 'Content sync interval in seconds' },
 
   { section: 'DISPLAY', key: 'ALWAYS_ON_TOP', type: 'boolean', default: true, comment: 'Keep player windows above other apps and the taskbar' },
+  { section: 'DISPLAY', key: 'FULLSCREEN', type: 'boolean', default: false, comment: 'Use Electron fullscreen (off by default; matches pre-config.ini work-area sizing)' },
+  { section: 'DISPLAY', key: 'KIOSK_MODE', type: 'boolean', default: false, comment: 'Use Electron kiosk (off by default; enabling this can exceed the work area on scaled displays)' },
 
   { section: 'CONTENT', key: 'CACHE_ENABLED', type: 'boolean', default: true, comment: 'Enable local content cache' },
   { section: 'CONTENT', key: 'CACHE_PATH', type: 'path', default: 'cache', comment: 'Cache folder (relative to ~/clever-console or absolute)' },

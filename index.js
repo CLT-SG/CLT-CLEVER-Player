@@ -13,6 +13,7 @@ const { setupUpdater } = require('./src/main/updater')
 const { registerIpcHandlers } = require('./src/main/ipc')
 const { isReachable } = require('./src/main/reachable')
 const configService = require('./src/main/config-service')
+const { resolveWindowChrome } = require('./src/main/window-bounds')
 
 setupLogging()
 setupSecurity()
@@ -62,10 +63,11 @@ function applyRuntimeSettings(snapshot) {
 function getWindowOptions(show) {
   const values = configService.getValues()
   const allowDevTools = Boolean(values.ENABLE_DEVTOOLS || values.DEV_MODE)
+  const chrome = resolveWindowChrome(values)
   return {
     backgroundColor: '#302d2d',
-    fullscreenable: !values.DEV_MODE,
-    alwaysOnTop: values.ALWAYS_ON_TOP !== false,
+    fullscreenable: chrome.fullscreenable,
+    alwaysOnTop: chrome.alwaysOnTop,
     resizable: false,
     movable: false,
     closable: false,
