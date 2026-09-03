@@ -134,6 +134,27 @@ function scheduleRetry(checkForUpdates) {
   retryDelay = Math.min(retryDelay * 2, MAX_RETRY_MS)
 }
 
+function getUpdaterSettings() {
+  try {
+    const values = require('./config-service').getValues()
+    return {
+      autoUpdate: values.AUTO_UPDATE !== false,
+      channel: values.UPDATE_CHANNEL || 'latest',
+      checkIntervalHours: Number(values.CHECK_INTERVAL_HOURS) || 6,
+      autoInstallOnRestart: values.AUTO_INSTALL_ON_RESTART !== false,
+      devMode: values.DEV_MODE === true
+    }
+  } catch {
+    return {
+      autoUpdate: true,
+      channel: 'latest',
+      checkIntervalHours: 6,
+      autoInstallOnRestart: true,
+      devMode: false
+    }
+  }
+}
+
 function setupUpdater({ getMainWindow }) {
   const { updaterLog, errorLog } = getLoggers()
 
@@ -142,18 +163,27 @@ function setupUpdater({ getMainWindow }) {
   }
   initialized = true
 
+  const settings = getUpdaterSettings()
   autoUpdater.logger = updaterLog
-  autoUpdater.autoDownload = true
-  autoUpdater.autoInstallOnAppQuit = true
+  autoUpdater.autoDownload = settings.autoUpdate
+  autoUpdater.autoInstallOnAppQuit = settings.autoInstallOnRestart
   autoUpdater.allowDowngrade = false
-  autoUpdater.allowPrerelease = /-alpha|-beta/.test(app.getVersion())
+  autoUpdater.allowPrerelease = settings.channel !== 'latest' || /-alpha|-beta/.test(app.getVersion())
+  if (typeof autoUpdater.channel !== 'undefined') {
+    autoUpdater.channel = settings.channel
+  }
 
   const notify = (partial) => setStatus(partial, getMainWindow)
 
   const checkForUpdates = async () => {
-    if (!app.isPackaged) {
+    const currentSettings = getUpdaterSettings()
+    if (!app.isPackaged || currentSettings.devMode || !currentSettings.autoUpdate) {
       notify({ state: 'dev', message: STATUS.DEV, progress: 0, error: null })
-      updaterLog.info('Skipping update check in development')
+      updaterLog.info('Skipping update check', {
+        packaged: app.isPackaged,
+        autoUpdate: currentSettings.autoUpdate,
+        devMode: currentSettings.devMode
+      })
       return status
     }
 
@@ -228,9 +258,11 @@ function setupUpdater({ getMainWindow }) {
     if (autoRestartTimer) {
       clearTimeout(autoRestartTimer)
     }
-    autoRestartTimer = setTimeout(() => {
-      installUpdate()
-    }, AUTO_RESTART_MS)
+    if (getUpdaterSettings().autoInstallOnRestart) {
+      autoRestartTimer = setTimeout(() => {
+        installUpdate()
+      }, AUTO_RESTART_MS)
+    }
   })
 
   autoUpdater.on('error', (error) => {
@@ -271,6 +303,10 @@ function setupUpdater({ getMainWindow }) {
     setTimeout(() => {
       checkForUpdates()
     }, 5000)
+    const hours = Math.max(1, getUpdaterSettings().checkIntervalHours)
+    setInterval(() => {
+      checkForUpdates()
+    }, hours * 60 * 60 * 1000)
   })
 
   function getPublicApi() {

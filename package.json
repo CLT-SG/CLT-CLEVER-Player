@@ -1,6 +1,6 @@
 {
   "name": "cleverplayer",
-  "version": "4.1.0",
+  "version": "4.2.0",
   "description": "CLEVER Console & Video Wall Player",
   "main": "index.js",
   "license": "ISC",
@@ -28,14 +28,11 @@
     "build": "electron-builder --dir --publish never",
     "package": "electron-builder --publish never",
     "package:win": "electron-builder --win --x64 --publish never",
-    "package:win32": "electron-builder --win --ia32 --publish never",
     "package:linux": "electron-builder --linux --x64 --publish never",
     "package:mac": "electron-builder --mac --publish never",
     "release": "electron-builder --publish always",
     "postinstall": "electron-builder install-app-deps",
-    "win32": "npm run package:win32",
     "win64": "npm run package:win",
-    "ubuntu32": "electron-builder --linux --ia32 --publish never",
     "ubuntu64": "npm run package:linux"
   },
   "dependencies": {
@@ -48,8 +45,7 @@
     "express": "^5.2.1",
     "macaddress": "^0.5.4",
     "qrcode": "^1.5.4",
-    "systeminformation": "^5.33.7",
-    "xml-js": "^1.6.11"
+    "systeminformation": "^5.33.7"
   },
   "devDependencies": {
     "electron": "^44.1.1",
@@ -63,20 +59,13 @@
     "executableName": "cleverplayer",
     "copyright": "Copyright © Closed-Loop Technology Pte. Ltd",
     "artifactName": "Clever-Player-${os}-${arch}-${version}.${ext}",
-    "extraResources": [
-      {
-        "from": "./cert",
-        "to": "cert"
-      }
-    ],
     "files": [
       "**/*",
-      "!pepflashplayer*",
       "!tests/**/*",
       "!.github/**/*",
-      "!src/hostping.js",
       "!eslint.config.js",
-      "!.nvmrc"
+      "!.nvmrc",
+      "!config.example.ini"
     ],
     "asar": true,
     "asarUnpack": [

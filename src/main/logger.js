@@ -7,9 +7,13 @@ const log = require('electron-log')
 const { getLogDir, ensureAppDirs } = require('./paths')
 const { redactArgs } = require('./redact')
 
-const MAX_LOG_SIZE = 5 * 1024 * 1024
-const RETENTION_MS = 14 * 24 * 60 * 60 * 1000
+const DEFAULT_MAX_LOG_SIZE = 5 * 1024 * 1024
+const DEFAULT_RETENTION_MS = 14 * 24 * 60 * 60 * 1000
+const LOG_LEVELS = ['error', 'warn', 'info', 'verbose', 'debug', 'silly']
 
+let maxLogSize = DEFAULT_MAX_LOG_SIZE
+let retentionMs = DEFAULT_RETENTION_MS
+let fileLevel = process.env.NODE_ENV === 'production' ? 'info' : 'debug'
 let initialized = false
 let errorLog
 let updaterLog
@@ -34,7 +38,7 @@ function pruneOldLogs() {
     return
   }
 
-  const cutoff = Date.now() - RETENTION_MS
+  const cutoff = Date.now() - retentionMs
   for (const name of entries) {
     if (!name.endsWith('.log')) {
       continue
@@ -52,10 +56,15 @@ function pruneOldLogs() {
   }
 }
 
+function normalizeLevel(level) {
+  const text = String(level || '').trim().toLowerCase()
+  return LOG_LEVELS.includes(text) ? text : null
+}
+
 function configureFileTransport(logger, fileName, level) {
   logger.transports.file.level = level
   logger.transports.console.level = process.env.NODE_ENV === 'production' ? 'info' : 'debug'
-  logger.transports.file.maxSize = MAX_LOG_SIZE
+  logger.transports.file.maxSize = maxLogSize
   logger.transports.file.format = '[{y}-{m}-{d} {h}:{i}:{s}.{ms}] [{level}] {text}'
   logger.transports.file.resolvePathFn = () => path.join(getLogDir(), fileName)
   logger.transports.file.archiveLogFn = archiveAndPrune
@@ -80,7 +89,7 @@ function setupLogging() {
     log.initialize({ spyRendererConsole: false })
   }
 
-  configureFileTransport(log, 'application.log', process.env.NODE_ENV === 'production' ? 'info' : 'debug')
+  configureFileTransport(log, 'application.log', fileLevel)
   wrapRedaction(log)
 
   const originalError = log.error.bind(log)
@@ -141,6 +150,33 @@ function logApplicationStart(app) {
   log.info('Log directory', logDir)
 }
 
+function applyLogSettings({ level, retentionDays, maxSizeMb, debugMode } = {}) {
+  const nextLevel = normalizeLevel(debugMode ? 'debug' : level)
+  if (nextLevel) {
+    fileLevel = nextLevel
+  }
+  if (typeof maxSizeMb === 'number' && maxSizeMb > 0) {
+    maxLogSize = maxSizeMb * 1024 * 1024
+  }
+  if (typeof retentionDays === 'number' && retentionDays > 0) {
+    retentionMs = retentionDays * 24 * 60 * 60 * 1000
+  }
+  if (!initialized) {
+    return
+  }
+  configureFileTransport(log, 'application.log', fileLevel)
+  if (errorLog) {
+    configureFileTransport(errorLog, 'error.log', 'warn')
+  }
+  if (updaterLog) {
+    configureFileTransport(updaterLog, 'updater.log', fileLevel)
+  }
+  if (playerLog) {
+    configureFileTransport(playerLog, 'player.log', fileLevel)
+  }
+  pruneOldLogs()
+}
+
 function getLoggers() {
   return {
     log,
@@ -152,8 +188,9 @@ function getLoggers() {
 
 module.exports = {
   setupLogging,
+  applyLogSettings,
   logApplicationStart,
   getLoggers,
-  MAX_LOG_SIZE,
-  RETENTION_MS
+  MAX_LOG_SIZE: DEFAULT_MAX_LOG_SIZE,
+  RETENTION_MS: DEFAULT_RETENTION_MS
 }

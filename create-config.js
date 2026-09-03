@@ -1,8 +1,5 @@
 'use strict'
 
-const fs = require('fs').promises
-const fsSync = require('fs')
-const path = require('path')
 const crypto = require('crypto')
 const { app, dialog, screen } = require('electron')
 const date = require('date-and-time')
@@ -10,8 +7,9 @@ const macaddress = require('macaddress')
 const { isReachable } = require('./src/main/reachable')
 const { getLocalFileUrl } = require('./src/main/security')
 const { getLoggers } = require('./src/main/logger')
-const { getConfigPath } = require('./src/main/paths')
-const { generateConfigContent, variableOrder } = require('./src/main/config-template')
+const { getAppDir } = require('./src/main/paths')
+const configService = require('./src/main/config-service')
+const { getLegacyWorkAreaBounds, resolveWindowChrome } = require('./src/main/window-bounds')
 
 class CreateConfig {
   static async createConfigFile(ipAddress, appDir, ex) {
@@ -19,56 +17,22 @@ class CreateConfig {
     if (ex) {
       log.warn(ex)
     }
-    const configFilePath = getConfigPath()
-    const configFileContent = generateConfigContent(ipAddress)
-
-    try {
-      await fs.mkdir(appDir, { recursive: true })
-      await fs.writeFile(configFilePath, configFileContent, 'utf-8')
-      CreateConfig.showSuccessDialog(configFilePath, 'created')
-    } catch (error) {
-      log.warn(`Error writing file: ${error}`)
-    }
+    const snapshot = configService.createDefault(ipAddress, appDir || getAppDir())
+    CreateConfig.showSuccessDialog(snapshot.iniPath, 'created')
   }
 
   static async checkVarExistingConfigFile(appDir) {
-    const { log } = getLoggers()
-    const configFilePath = path.join(appDir, 'config.js')
-
-    try {
-      const configFileContent = await fs.readFile(configFilePath, 'utf-8')
-      const missingVariables = variableOrder().filter((variable) => !configFileContent.includes(variable))
-
-      if (missingVariables.length > 0) {
-        log.warn('Missing variables:', missingVariables)
-        return false
-      }
-      log.info('All variables are present in the file.')
-      return true
-    } catch (error) {
-      log.warn(`Error reading file: ${error}`)
-      return false
-    }
+    return configService.hasIni(appDir) || configService.hasLegacyJs(appDir)
   }
 
   static async updateSpecificVarOnlyConfigFile(appDir, varArgs) {
     const { log } = getLoggers()
-    const configFilePath = path.join(appDir, 'config.js')
-
     try {
-      let configFileContent = await fs.readFile(configFilePath, 'utf-8')
-      const host = String(varArgs.hostaddress || '').replace(/'/g, '')
-      const tempid = String(varArgs.tempid || '').replace(/'/g, '')
-      const ctrltype = String(varArgs.ctrltype || '').replace(/'/g, '')
-      const serialkey = String(varArgs.serialkey || '').replace(/'/g, '')
-
-      configFileContent = configFileContent.replace(/var hostserver = '.*?';/, `var hostserver = '${host}';`)
-      configFileContent = configFileContent.replace(/var tempid = '.*?';/, `var tempid = '${tempid}';`)
-      configFileContent = configFileContent.replace(/var ctrltype = '.*?';/, `var ctrltype = '${ctrltype}';`)
-      configFileContent = configFileContent.replace(/var serialkey = '.*?';/, `var serialkey = '${serialkey}';`)
-
-      await fs.writeFile(configFilePath, configFileContent, 'utf-8')
-      CreateConfig.showSuccessDialog(configFilePath, 'modify')
+      if (appDir) {
+        configService.initialize({ appDir })
+      }
+      const snapshot = configService.updateFromConfigureUi(varArgs)
+      CreateConfig.showSuccessDialog(snapshot.iniPath, 'modify')
     } catch (error) {
       log.warn(`Error reading/writing file: ${error}`)
     }
@@ -76,39 +40,20 @@ class CreateConfig {
 
   static async updateExistingConfigFile(ipAddress, appDir) {
     const { log } = getLoggers()
-    const configFilePath = path.join(appDir, 'config.js')
-
     try {
-      let configFileContent = await fs.readFile(configFilePath, 'utf-8')
-      const configFileContent1 = generateConfigContent(ipAddress)
-      const missing = variableOrder()
-      let updatedContent = configFileContent
-      const areAllVariablesPresent = missing.every((variable) => configFileContent.includes(variable))
-
-      if (!areAllVariablesPresent) {
-        missing.forEach((variable) => {
-          if (!configFileContent.includes(variable)) {
-            const insertIndex = configFileContent1.indexOf(variable)
-            const endIndex = configFileContent1.indexOf('; // Controller type', insertIndex)
-            updatedContent =
-              `${updatedContent.slice(0, insertIndex)}${configFileContent1.slice(insertIndex, endIndex + 1)}${updatedContent.slice(insertIndex)}`
-          }
-        })
+      if (!configService.hasIni(appDir) && !configService.hasLegacyJs(appDir)) {
+        configService.createDefault(ipAddress, appDir)
+      } else {
+        configService.initialize({ appDir, host: ipAddress })
       }
-
-      await fs.writeFile(configFilePath, updatedContent, 'utf-8')
-      CreateConfig.showSuccessDialog(configFilePath, 'updated')
+      CreateConfig.showSuccessDialog(configService.getIniPath(appDir), 'updated')
     } catch (error) {
       log.warn(`Error reading/writing file: ${error}`)
     }
   }
 
-  static variableOrder() {
-    return variableOrder()
-  }
-
   static generateConfigContent(ipAddress) {
-    return generateConfigContent(ipAddress)
+    return configService.generateDefaultIni(ipAddress)
   }
 
   static showSuccessDialog(configFilePath, msg) {
@@ -121,7 +66,7 @@ class CreateConfig {
       defaultId: 0,
       title: 'Setup and configuration',
       message: `Config file has been ${msg}.`,
-      detail: `Please change hostserver at this location ${configFilePath}\r\n\r\n\r\nCopyright © 2000-${date.format(new Date(), 'YYYY')} by Closed-loop Technology Pte Ltd. All rights reserved\r\nwww.closed-loop.biz`
+      detail: `Please edit config.ini at this location:\r\n${configFilePath}\r\n\r\nNo JavaScript knowledge is required. Use KEY=VALUE settings, then restart CLEVER Player.\r\n\r\nCopyright © 2000-${date.format(new Date(), 'YYYY')} by Closed-loop Technology Pte Ltd. All rights reserved\r\nwww.closed-loop.biz`
     }
 
     dialog.showMessageBox(null, options).then((data) => {
@@ -133,17 +78,17 @@ class CreateConfig {
   }
 
   static getConfigPath(appdir) {
-    return path.join(appdir, 'config.js')
+    return configService.getIniPath(appdir)
   }
 
   static readConfig(appdir) {
-    const configPath = this.getConfigPath(appdir)
     try {
-      if (!fsSync.existsSync(configPath)) {
-        return null
+      if (appdir) {
+        if (configService.hasIni(appdir) || configService.hasLegacyJs(appdir)) {
+          configService.initialize({ appDir: appdir })
+        }
       }
-      delete require.cache[require.resolve(configPath)]
-      return require(configPath)
+      return configService.getLegacyConfig()
     } catch (error) {
       const { log } = getLoggers()
       log.error('Error reading config file:', error)
@@ -162,12 +107,19 @@ class CreateConfig {
       return
     }
 
+    const values = config.values || {}
+    const timeoutMs = Number(config.timeout) || 10000
     let status = false
-    try {
-      status = await isReachable('http://' + config.controller, { timeout: 10000 })
-    } catch (error) {
-      errorLog.warn('Network error while checking controller', error)
+    if (values.OFFLINE_MODE) {
+      playerLog.info('Offline mode enabled')
       status = false
+    } else {
+      try {
+        status = await isReachable('http://' + config.controller, { timeout: timeoutMs })
+      } catch (error) {
+        errorLog.warn('Network error while checking controller', error)
+        status = false
+      }
     }
 
     let mac
@@ -198,12 +150,7 @@ class CreateConfig {
         if (config.ctrltype === 'console' && serverWin && !serverWin.isDestroyed()) {
           await mainWin.loadURL('http://' + config.controller + '/preview/login')
           serverWin.show()
-          serverWin.setBounds({
-            x: 0,
-            y: 0,
-            width: screen.getPrimaryDisplay().workArea.width,
-            height: screen.getPrimaryDisplay().workArea.height
-          })
+          applyWindowMode(serverWin, values)
           await serverWin.loadURL('http://' + config.controller)
           serverWin.blur()
         }
@@ -213,17 +160,35 @@ class CreateConfig {
         await mainWin.loadURL(getLocalFileUrl('src/offline.html'))
         log.warn('Server http://' + config.cleverweb + ' is offline')
       }
-      mainWin.setBounds({
-        x: 0,
-        y: 0,
-        width: screen.getPrimaryDisplay().workArea.width,
-        height: screen.getPrimaryDisplay().workArea.height
-      })
+      applyWindowMode(mainWin, values)
       mainWin.focus()
     } else {
       await mainWin.loadURL(getLocalFileUrl('src/activate.html'))
     }
   }
+}
+
+function applyWindowMode(win, values) {
+  if (!win || win.isDestroyed()) {
+    return
+  }
+  const chrome = resolveWindowChrome(values)
+  const bounds = getLegacyWorkAreaBounds(screen.getPrimaryDisplay())
+  try {
+    if (chrome.kiosk) {
+      win.setKiosk(true)
+      return
+    }
+    win.setKiosk(false)
+    if (chrome.fullscreen) {
+      win.setFullScreen(true)
+      return
+    }
+    win.setFullScreen(false)
+  } catch {
+    // Some platforms reject kiosk/fullscreen changes while the window is hidden.
+  }
+  win.setBounds(bounds)
 }
 
 module.exports = CreateConfig

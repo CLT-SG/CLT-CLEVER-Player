@@ -29,14 +29,37 @@ function writeCrashState(state) {
   }
 }
 
+function getWatchdogSettings() {
+  try {
+    const values = require('./config-service').getValues()
+    return {
+      enabled: values.WATCHDOG_ENABLED !== false,
+      restartOnCrash: values.WATCHDOG_RESTART_ON_CRASH !== false,
+      maxCrashCount: Number(values.WATCHDOG_MAX_CRASH_COUNT) || MAX_RELAUNCHES,
+      recoverWebview: values.AUTO_RECOVER_WEBVIEW !== false
+    }
+  } catch {
+    return {
+      enabled: true,
+      restartOnCrash: true,
+      maxCrashCount: MAX_RELAUNCHES,
+      recoverWebview: true
+    }
+  }
+}
+
 function canRelaunch() {
+  const settings = getWatchdogSettings()
+  if (!settings.enabled || !settings.restartOnCrash) {
+    return false
+  }
   const now = Date.now()
   const state = readCrashState()
   if (now - state.lastAt > RELAUNCH_WINDOW_MS) {
     writeCrashState({ count: 1, lastAt: now })
     return true
   }
-  if (state.count >= MAX_RELAUNCHES) {
+  if (state.count >= settings.maxCrashCount) {
     return false
   }
   writeCrashState({ count: state.count + 1, lastAt: now })
@@ -57,6 +80,11 @@ function safeRelaunch(reason) {
 
 function reloadOrRecover(win, reason) {
   const { log, errorLog } = getLoggers()
+  const settings = getWatchdogSettings()
+  if (!settings.recoverWebview) {
+    errorLog.warn('Webview auto-recovery disabled', reason)
+    return false
+  }
   if (win && !win.isDestroyed() && win.webContents && !win.webContents.isDestroyed()) {
     log.warn('Reloading window after failure', reason)
     try {

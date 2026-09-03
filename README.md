@@ -2,7 +2,7 @@
 
 Electron player for CLEVER Console and Video Wall.
 
-Version **4.1.0** upgrades Electron to the current stable line, adds production auto-update via GitHub Releases, and ships a tag-triggered installer pipeline.
+Version **4.2.0** stores all player settings in a single `config.ini` file, migrates existing `config.js` installs automatically, and removes unused Flash/offline assets. It also includes the Electron 44 runtime and GitHub Releases auto-update from 4.1.0.
 
 ## Requirements
 
@@ -32,17 +32,172 @@ npm run dev
 
 `npm start` is an alias of `npm run dev`.
 
-The first launch creates `~/clever-console/config.js` if it does not exist. Shortcuts:
+The first launch creates `~/clever-console/config.ini` if it does not exist. Edit that file with a text editor — no JavaScript knowledge is required.
+
+### First-time setup
+
+```text
+1. Install CLEVER Player
+2. Edit ~/clever-console/config.ini
+3. Save the file
+4. Start (or restart) the player
+```
+
+If an older install still has `config.js`, the player converts it on startup:
+
+```text
+Application Start
+       ↓
+config.ini exists?
+       ↓
+No
+       ↓
+Read existing config.js
+       ↓
+Generate config.ini
+       ↓
+Rename config.js → config.js.bak
+       ↓
+Continue startup
+```
+
+Shortcuts:
 
 | Shortcut | Action |
 | --- | --- |
 | Alt+Home | Configuration page |
-| Alt+Insert | Developer tools |
+| Alt+Insert | Developer tools (when `ENABLE_DEVTOOLS=true` or `DEV_MODE=true`) |
 | Alt+F5 | Clear cache and reload |
 | Alt+PageUp | Switch console / server window |
 | Alt+Delete | Exit |
 
-Auto-update is **disabled in development** (`app.isPackaged === false`).
+Auto-update is **disabled in development** (`app.isPackaged === false`). Packaged builds also skip updates when `AUTO_UPDATE=false` or `DEV_MODE=true`.
+
+## Configuration
+
+All user-editable settings live in:
+
+```text
+~/clever-console/config.ini
+```
+
+Windows: `%USERPROFILE%\clever-console\config.ini`
+
+The file uses ordinary INI sections and `KEY=VALUE` lines. Invalid values are logged, replaced with defaults, and startup continues.
+
+A commented production template is in `config.example.ini`.
+
+### Migration from config.js
+
+| Old | New |
+| --- | --- |
+| `~/clever-console/config.js` | `~/clever-console/config.ini` |
+| JavaScript `var hostserver = '...'` | `HOST=...` |
+| Manual edits in JS | Text editor, no code |
+
+Existing installs do not need a manual conversion. After migration you will see:
+
+```text
+config.ini
+config.js.bak
+```
+
+Runtime fields used by CLEVER web (`hostserver`, `controller`, `tempid`, `ctrltype`, `serialkey`, and the `*port1` aliases) are still provided automatically.
+
+### Development example
+
+```ini
+[PLAYER]
+SERIAL_KEY=
+TEMPLATE_ID=1
+CTRL_TYPE=console
+
+[SERVER]
+HOST=127.0.0.1
+CONTROLLER_PORT=80
+WEB_PORT=9100
+
+[UPDATER]
+AUTO_UPDATE=false
+
+[ADVANCED]
+DEV_MODE=true
+DEBUG_MODE=true
+ENABLE_DEVTOOLS=true
+```
+
+When `DEV_MODE=true`, auto-update is skipped and DevTools can be enabled with `ENABLE_DEVTOOLS=true`. Window size is unchanged: the player still uses the display work area unless `FULLSCREEN` or `KIOSK_MODE` is set.
+
+### Window size
+
+By default the player matches pre-`config.ini` releases: a frameless window sized to the primary display **work area** (DIP pixels, `x=0,y=0`). That stays inside the visible desktop, including at 125% / 150% / 175% Windows scaling.
+
+Do not turn on kiosk or fullscreen unless you want Electron's full-display modes:
+
+```ini
+[DISPLAY]
+ALWAYS_ON_TOP=true
+FULLSCREEN=false
+KIOSK_MODE=false
+```
+
+| Key | Default | Effect |
+| --- | --- | --- |
+| `ALWAYS_ON_TOP` | `true` | Keep the player above other windows and the taskbar. Does not change width or height. |
+| `FULLSCREEN` | `false` | Electron fullscreen. Off by default so migrated installs keep work-area bounds. |
+| `KIOSK_MODE` | `false` | Electron kiosk (full display, including over the taskbar). Can extend past the right edge on scaled displays. Leave `false` to preserve legacy sizing. |
+
+`DEV_MODE` does not change window dimensions.
+
+### Production example
+
+```ini
+[PLAYER]
+SERIAL_KEY=
+TEMPLATE_ID=1
+CTRL_TYPE=videowall
+
+[SERVER]
+HOST=server.domain.com
+CONTROLLER_PORT=80
+HEARTBEAT_INTERVAL=30
+SYNC_INTERVAL=60
+
+[DISPLAY]
+ALWAYS_ON_TOP=true
+FULLSCREEN=false
+KIOSK_MODE=false
+
+[LOGGING]
+LOG_LEVEL=INFO
+LOG_RETENTION_DAYS=30
+MAX_LOG_SIZE_MB=100
+
+[UPDATER]
+AUTO_UPDATE=true
+UPDATE_CHANNEL=latest
+CHECK_INTERVAL_HOURS=6
+
+[ADVANCED]
+DEV_MODE=false
+DEBUG_MODE=false
+ENABLE_DEVTOOLS=false
+```
+
+### Multi-player deployment
+
+Give each machine its own template and serial. Host/ports can stay the same:
+
+```ini
+[PLAYER]
+TEMPLATE_ID=12
+CTRL_TYPE=videowall
+
+[SERVER]
+HOST=10.0.0.10
+```
+
+Copy `config.example.ini` to each player, change `TEMPLATE_ID` and `SERIAL_KEY`, then start the app.
 
 ## Production build
 
@@ -61,7 +216,7 @@ npm run package:linux    # Linux deb + AppImage x64
 npm run package:mac      # macOS dmg + zip
 ```
 
-Legacy script names `win64`, `ubuntu64`, and `win32` still work. Windows ia32 depends on Electron still publishing 32-bit artifacts; x64 is the supported release target.
+Legacy script names `win64` and `ubuntu64` still work. x64 is the supported release target.
 
 Output directory: `build/release/`.
 
@@ -83,8 +238,8 @@ electron-updater latest.yml version
 
 Use semantic versioning `MAJOR.MINOR.PATCH`:
 
-- `4.1.0` — features / Electron upgrades
-- `4.1.1` — fixes
+- `4.2.0` — configuration / player features
+- `4.2.1` — fixes
 - `5.0.0` — breaking player behavior
 
 Optional channels use a prerelease suffix. Those publish `beta.yml` / `alpha.yml` instead of `latest.yml`:
@@ -212,7 +367,7 @@ logs/
 └── player.log
 ```
 
-Each file rotates at 5 MB. Archived `*.old.log` files are deleted after 14 days.
+Each file rotates at the size set by `MAX_LOG_SIZE_MB` in `config.ini` (default 100 MB). Archived `*.old.log` files are deleted after `LOG_RETENTION_DAYS` (default 30).
 
 Logged events include application lifecycle, Electron/OS versions, update states, player start/stop, content load/fail, playlist changes, and device connection status. Passwords, tokens, serial keys, and private keys are redacted.
 
@@ -220,13 +375,13 @@ Logged events include application lifecycle, Electron/OS versions, update states
 
 | Problem | What to check |
 | --- | --- |
-| White screen / offline page | LAN cable, CLEVER server power, `hostserver` in `~/clever-console/config.js` |
+| White screen / offline page | LAN cable, CLEVER server power, `HOST` in `~/clever-console/config.ini` |
 | Activation page | Serial key must match SHA-256 of this machine's MAC address |
 | Update never appears | App must be installed from a GitHub Release, not `npm run dev`. Check `updater.log` |
 | `latest.yml` missing | Release workflow failed, or Linux/mac assets were published without the Windows job |
 | Tag rejected | `v1.2.3` must equal `package.json` `"version": "1.2.3"` |
 | Port 9000 in use | Local control API did not bind; see `application.log` |
-| DevTools | Alt+Insert |
+| Window hangs off the right edge | Leave `KIOSK_MODE=false` and `FULLSCREEN=false`. The player uses the work area, not the full display. Restart after editing `config.ini` |
 
 ## Security notes
 
@@ -244,3 +399,5 @@ Pepper Flash has been removed (unsupported in modern Chromium). Certificate erro
 | `npm run build` | Unpacked production app |
 | `npm run package` | Current-platform installer |
 | `npm run release` | Package and publish (CI) |
+
+Removed in 4.2.0: Pepper Flash DLLs, unused `offline2` / fullPage.js assets, dummy `cert/` extraResources, `xml-js`, `src/hostping.js`, and 32-bit package scripts.
