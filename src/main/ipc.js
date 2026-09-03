@@ -11,7 +11,7 @@ const { isValidAccelerator } = require('./config-template')
 const CreateConfig = require('../../create-config')
 
 function getConfig() {
-  return CreateConfig.readConfig(getAppDir())
+  return require('./config-service').getLegacyConfig()
 }
 
 function validateSender(event, channel) {
@@ -243,6 +243,10 @@ function registerIpcHandlers({ getWindows, reloadPlayer }) {
     if (!validateSender(event, 'window-open-devtools')) {
       return
     }
+    const values = require('./config-service').getValues()
+    if (!values.ENABLE_DEVTOOLS && !values.DEV_MODE) {
+      return
+    }
     event.sender.openDevTools({ mode: 'detach' })
   })
 
@@ -254,7 +258,7 @@ function registerIpcHandlers({ getWindows, reloadPlayer }) {
     const currentDateTime = require('date-and-time').format(new Date(), 'YYYY/MM/DD HH:mm:ss')
     try {
       const status = config && config.controller
-        ? await isReachable('http://' + config.controller, { timeout: 10000 })
+        ? await isReachable('http://' + config.controller, { timeout: Number(config.timeout) || 10000 })
         : false
       playerLog.info('Device connection status', status ? 'online' : 'offline')
       if (status) {

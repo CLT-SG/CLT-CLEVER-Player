@@ -97,9 +97,7 @@ function isAllowedWebviewNavigation(urlValue) {
 
 function loadConfigSafe() {
   try {
-    const CreateConfig = require('../../create-config')
-    const { getAppDir } = require('./paths')
-    return CreateConfig.readConfig(getAppDir())
+    return require('./config-service').getLegacyConfig()
   } catch {
     return null
   }

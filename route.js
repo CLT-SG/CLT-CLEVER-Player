@@ -1,14 +1,12 @@
 'use strict'
 
 const express = require('express')
-const path = require('path')
-const fs = require('fs')
 const cors = require('cors')
 const { createCanvas, loadImage } = require('@napi-rs/canvas')
 const shutdown = require('electron-shutdown-command')
 const si = require('systeminformation')
-const { getAppDir, getConfigPath } = require('./src/main/paths')
 const { getLoggers } = require('./src/main/logger')
+const configService = require('./src/main/config-service')
 
 const port = 9000
 let mainWindow
@@ -17,10 +15,8 @@ let screen
 let server
 
 function loadConfig() {
-  const configPath = getConfigPath()
   try {
-    delete require.cache[require.resolve(configPath)]
-    return require(configPath)
+    return configService.getLegacyConfig()
   } catch (error) {
     const { errorLog } = getLoggers()
     errorLog.warn('Local API could not load config', error)
@@ -28,35 +24,18 @@ function loadConfig() {
   }
 }
 
+function getSettings() {
+  try {
+    return configService.getValues()
+  } catch {
+    return {}
+  }
+}
+
 function setMainWindow(mainWin, desktopCapturerInstance, screenInstance) {
   mainWindow = mainWin
   desktopCapturer = desktopCapturerInstance
   screen = screenInstance
-}
-
-function searchAndReplace(filePath, searchLine, replacementLine) {
-  return new Promise((resolve, reject) => {
-    fs.readFile(filePath, 'utf-8', (err, data) => {
-      if (err) {
-        reject(err)
-        return
-      }
-      const lines = data.split('\n')
-      const modifiedLines = lines.map((line) => {
-        if (line.includes(searchLine)) {
-          return replacementLine
-        }
-        return line
-      })
-      fs.writeFile(filePath, modifiedLines.join('\n'), 'utf-8', (writeErr) => {
-        if (writeErr) {
-          reject(writeErr)
-        } else {
-          resolve()
-        }
-      })
-    })
-  })
 }
 
 const takeScreenshot = () => {
@@ -130,6 +109,10 @@ function createApp() {
 
   api.get('/api/deviceinfo', async (req, res) => {
     const { log, errorLog } = getLoggers()
+    const settings = getSettings()
+    if (settings.CPU_MONITORING === false) {
+      return res.status(403).end('CPU monitoring disabled')
+    }
     try {
       const data = await si.cpu()
       log.info('CPU Info requested')
@@ -175,14 +158,11 @@ function createApp() {
       if (!config) {
         return res.status(500).end('Config missing')
       }
-      await searchAndReplace(
-        path.join(getAppDir(), 'config.js'),
-        'var tempid',
-        `var tempid  = '${String(templateId).replace(/'/g, '')}'; // insert template id`
-      )
+      const safeId = String(templateId ?? '').replace(/['"\r\n]/g, '')
+      configService.updateValues({ TEMPLATE_ID: safeId })
       if (config.ctrltype === 'videowall' && mainWindow && !mainWindow.isDestroyed()) {
-        await mainWindow.loadURL('http://' + config.controller + '/preview/' + templateId + '/videowall/false')
-        playerLog.info('Playlist changed', templateId)
+        await mainWindow.loadURL('http://' + config.controller + '/preview/' + safeId + '/videowall/false')
+        playerLog.info('Playlist changed', safeId)
       }
       if (config.ctrltype === 'console') {
         return res.status(200).end('Not allowed')
@@ -197,6 +177,9 @@ function createApp() {
 
   api.get('/api/getScreenshot', async (req, res) => {
     const { errorLog } = getLoggers()
+    if (getSettings().SCREENSHOT_ENABLED === false) {
+      return res.status(403).send('Screenshots disabled')
+    }
     try {
       const image = await takeScreenshot()
       return res.status(200).json(image)
@@ -208,6 +191,9 @@ function createApp() {
 
   api.get('/img/screenshot.png', async (req, res) => {
     const { errorLog } = getLoggers()
+    if (getSettings().SCREENSHOT_ENABLED === false) {
+      return res.status(403).send('Screenshots disabled')
+    }
     try {
       const screenshots = await takeScreenshot()
       const mergedImageData = await mergeScreenshots(screenshots)

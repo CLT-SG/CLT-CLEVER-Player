@@ -6,9 +6,7 @@ module.exports = [
       'node_modules/**',
       'build/release/**',
       'src/assets/js/**',
-      'src/assets/css/**',
-      'src/hostping.js',
-      'pepflashplayer*'
+      'src/assets/css/**'
     ]
   },
   {

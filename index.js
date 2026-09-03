@@ -2,17 +2,17 @@
 
 const { app, BrowserWindow, globalShortcut, desktopCapturer, screen, Menu } = require('electron')
 const path = require('path')
-const fs = require('fs')
 
 const CreateConfig = require('./create-config')
 const PortScanner = require('./port-scanner')
-const { getAppDir, getConfigPath, ensureAppDirs } = require('./src/main/paths')
-const { setupLogging, logApplicationStart, getLoggers } = require('./src/main/logger')
+const { getAppDir, ensureAppDirs } = require('./src/main/paths')
+const { setupLogging, logApplicationStart, getLoggers, applyLogSettings } = require('./src/main/logger')
 const { setupSecurity, getLocalFileUrl } = require('./src/main/security')
 const { setupCrashRecovery, reloadOrRecover, isIgnorableLoadError } = require('./src/main/recovery')
 const { setupUpdater } = require('./src/main/updater')
 const { registerIpcHandlers } = require('./src/main/ipc')
 const { isReachable } = require('./src/main/reachable')
+const configService = require('./src/main/config-service')
 
 setupLogging()
 setupSecurity()
@@ -49,10 +49,22 @@ if (!gotTheLock) {
 
 app.commandLine.appendSwitch('disable-http-cache')
 
+function applyRuntimeSettings(snapshot) {
+  const values = (snapshot && snapshot.values) || configService.getValues()
+  applyLogSettings({
+    level: values.LOG_LEVEL,
+    retentionDays: values.LOG_RETENTION_DAYS,
+    maxSizeMb: values.MAX_LOG_SIZE_MB,
+    debugMode: values.DEBUG_MODE
+  })
+}
+
 function getWindowOptions(show) {
+  const values = configService.getValues()
+  const allowDevTools = Boolean(values.ENABLE_DEVTOOLS || values.DEV_MODE)
   return {
     backgroundColor: '#302d2d',
-    fullscreenable: false,
+    fullscreenable: values.FULLSCREEN !== false,
     resizable: false,
     movable: false,
     closable: false,
@@ -70,7 +82,7 @@ function getWindowOptions(show) {
       webSecurity: true,
       allowRunningInsecureContent: false,
       spellcheck: false,
-      devTools: true
+      devTools: allowDevTools
     }
   }
 }
@@ -158,12 +170,15 @@ function createWindows() {
 
 function registerShortcuts() {
   const { log } = getLoggers()
+  const values = configService.getValues()
 
-  globalShortcut.register('Alt+Insert', () => {
-    if (mainWin && !mainWin.isDestroyed()) {
-      mainWin.webContents.openDevTools({ mode: 'detach' })
-    }
-  })
+  if (values.ENABLE_DEVTOOLS || values.DEV_MODE) {
+    globalShortcut.register('Alt+Insert', () => {
+      if (mainWin && !mainWin.isDestroyed()) {
+        mainWin.webContents.openDevTools({ mode: 'detach' })
+      }
+    })
+  }
 
   globalShortcut.register('Alt+Home', () => {
     if (mainWin && !mainWin.isDestroyed()) {
@@ -200,20 +215,7 @@ function registerShortcuts() {
 }
 
 async function bootstrapWithConfig() {
-  const { log, errorLog } = getLoggers()
-  CreateConfig.checkVarExistingConfigFile(appDir)
-    .then(async (checkExist) => {
-      if (!checkExist) {
-        const scanner = new PortScanner()
-        const openPorts = await scanner.scanIPRange()
-        const ipaddress = openPorts[0] || 'localhost'
-        await CreateConfig.updateExistingConfigFile(ipaddress, appDir)
-      }
-    })
-    .catch((error) => {
-      errorLog.warn(error)
-    })
-
+  const { log } = getLoggers()
   createWindows()
   registerIpcHandlers({
     getWindows: () => ({ mainWin, serverWin }),
@@ -233,45 +235,57 @@ async function bootstrapWithConfig() {
   await reloadPlayer()
 }
 
-async function bootstrapWithoutConfig(error) {
-  const { log, errorLog } = getLoggers()
-  errorLog.warn('Config missing or invalid, scanning for CLEVER server', error && error.message)
+async function bootstrapFirstRun() {
+  const { errorLog } = getLoggers()
+  errorLog.warn('Config missing, scanning for CLEVER server')
   const scanner = new PortScanner()
   const openPorts = await scanner.scanIPRange()
   const ipaddress = openPorts[0] || 'localhost'
-  if (!fs.existsSync(getConfigPath())) {
-    await CreateConfig.createConfigFile(ipaddress, appDir, error)
-  } else {
-    log.info('Config file already exists, launching')
-    app.relaunch()
-    app.exit(0)
-  }
+  await CreateConfig.createConfigFile(ipaddress, appDir)
 }
 
 app.whenReady().then(async () => {
-  const { errorLog } = getLoggers()
+  const { log, errorLog } = getLoggers()
   logApplicationStart(app)
   setupCrashRecovery(() => ({ mainWin, serverWin }))
 
   try {
-    require(getConfigPath())
-    await bootstrapWithConfig()
-  } catch (error) {
-    if (!fs.existsSync(getConfigPath())) {
-      await bootstrapWithoutConfig(error)
-    } else {
-      errorLog.error('Invalid configuration file, opening configure page', error)
-      createWindows()
-      registerIpcHandlers({
-        getWindows: () => ({ mainWin, serverWin }),
-        reloadPlayer
-      })
-      registerShortcuts()
-      setupUpdater({ getMainWindow: () => mainWin })
-      if (mainWin && !mainWin.isDestroyed()) {
-        mainWin.loadURL(getLocalFileUrl('src/configure.html'))
-        mainWin.show()
+    if (configService.hasIni(appDir) || configService.hasLegacyJs(appDir)) {
+      const snapshot = configService.initialize({ appDir })
+      applyRuntimeSettings(snapshot)
+      log.info('Configuration loaded', snapshot.iniPath)
+      if (snapshot.migrated) {
+        log.info('Migrated config.js to config.ini automatically')
       }
+      if (snapshot.warnings && snapshot.warnings.length > 0) {
+        errorLog.warn(`Configuration used ${snapshot.warnings.length} default value(s) after validation`)
+      }
+      await bootstrapWithConfig()
+    } else {
+      await bootstrapFirstRun()
+    }
+  } catch (error) {
+    errorLog.error('Startup failed, opening configure page', error)
+    try {
+      if (!configService.hasIni(appDir)) {
+        configService.createDefault('127.0.0.1', appDir)
+      } else {
+        configService.initialize({ appDir })
+      }
+      applyRuntimeSettings(configService.getSnapshot())
+    } catch (configError) {
+      errorLog.error('Unable to recover configuration', configError)
+    }
+    createWindows()
+    registerIpcHandlers({
+      getWindows: () => ({ mainWin, serverWin }),
+      reloadPlayer
+    })
+    registerShortcuts()
+    setupUpdater({ getMainWindow: () => mainWin })
+    if (mainWin && !mainWin.isDestroyed()) {
+      mainWin.loadURL(getLocalFileUrl('src/configure.html'))
+      mainWin.show()
     }
   }
 

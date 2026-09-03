@@ -19,6 +19,10 @@ function getLogDir() {
 }
 
 function getConfigPath() {
+  return path.join(getAppDir(), 'config.ini')
+}
+
+function getLegacyConfigPath() {
   return path.join(getAppDir(), 'config.js')
 }
 
@@ -36,5 +40,6 @@ module.exports = {
   getAppDir,
   getLogDir,
   getConfigPath,
+  getLegacyConfigPath,
   ensureAppDirs
 }
