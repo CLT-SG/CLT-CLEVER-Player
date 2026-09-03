@@ -84,7 +84,7 @@ function isFullReload(payload) {
   if (!payload) {
     return true
   }
-  return payload.action === ACTIONS.RELOAD_LAYOUT || payload.layout_changed === true
+  return payload.action === ACTIONS.RELOAD_LAYOUT
 }
 
 function isIncremental(payload) {

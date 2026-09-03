@@ -39,6 +39,16 @@ describe('slot sync runtime patch engine', () => {
     assert.equal(isFullReload(payload), false)
   })
 
+  test('layout_changed on an incremental action does not force a layout reload', () => {
+    const payload = normalizePayload({
+      action: 'slot_update',
+      layout_changed: true,
+      slot_id: 6
+    })
+    assert.equal(isFullReload(payload), false)
+    assert.equal(isIncremental(payload), true)
+  })
+
   test('accepts playlist_update with template id', () => {
     const payload = normalizePayload({
       action: 'playlist_update',
