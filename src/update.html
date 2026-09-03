@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:;">
+  <title>CLEVER Player Update</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      font-family: 'Segoe UI', Arial, sans-serif;
+      background: #1e1e1e;
+      color: #f3f3f3;
+      overflow: hidden;
+    }
+    .panel {
+      padding: 18px 22px;
+    }
+    h1 {
+      font-size: 16px;
+      margin: 0 0 10px 0;
+    }
+    #status {
+      font-size: 18px;
+      margin-bottom: 10px;
+    }
+    #detail {
+      font-size: 13px;
+      color: #c8c8c8;
+      min-height: 18px;
+    }
+    progress {
+      width: 100%;
+      height: 12px;
+      margin: 12px 0;
+    }
+    button {
+      border: none;
+      border-radius: 6px;
+      padding: 8px 14px;
+      margin-right: 8px;
+      background: #0062cc;
+      color: #fff;
+      cursor: pointer;
+    }
+    button.secondary {
+      background: #444;
+    }
+    #actions {
+      margin-top: 8px;
+    }
+  </style>
+</head>
+<body>
+  <div class="panel">
+    <h1>CLEVER Player</h1>
+    <div id="status">Checking for updates...</div>
+    <div id="detail"></div>
+    <progress id="progress" max="100" value="0" hidden></progress>
+    <div id="actions" hidden>
+      <button id="restart">Restart to update</button>
+      <button id="later" class="secondary">Later</button>
+    </div>
+  </div>
+  <script>
+    const statusEl = document.getElementById('status')
+    const detailEl = document.getElementById('detail')
+    const progressEl = document.getElementById('progress')
+    const actionsEl = document.getElementById('actions')
+
+    function render(payload) {
+      if (!payload) return
+      statusEl.textContent = payload.message || 'Checking for updates...'
+      if (payload.state === 'downloading') {
+        progressEl.hidden = false
+        progressEl.value = payload.progress || 0
+        detailEl.textContent = 'Download progress: ' + (payload.progress || 0) + '%'
+      } else {
+        progressEl.hidden = payload.state !== 'downloaded'
+        detailEl.textContent = payload.version ? ('Version ' + payload.version) : (payload.error || '')
+      }
+      actionsEl.hidden = payload.state !== 'downloaded'
+    }
+
+    if (window.cleverPlayer) {
+      window.cleverPlayer.getUpdateStatus().then(render).catch(() => {
+        statusEl.textContent = 'Update failed'
+      })
+      window.cleverPlayer.onUpdateStatus(render)
+    }
+
+    document.getElementById('restart').addEventListener('click', () => {
+      if (window.cleverPlayer) window.cleverPlayer.installUpdate()
+    })
+    document.getElementById('later').addEventListener('click', () => {
+      window.close()
+    })
+  </script>
+</body>
+</html>

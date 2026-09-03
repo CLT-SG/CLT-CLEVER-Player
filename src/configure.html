@@ -1,18 +1,10 @@
-<html lang="us">
+<html lang="en">
 
 <head>
 	<meta charset="utf-8">
+	<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:;">
 	<title>CLEVER - Media Player</title>
-	<script>
-		if (typeof module === 'object') {
-			window.module = module
-			module = undefined
-		}
-	</script>
-	<!-- Latest compiled and minified CSS -->
 	<link href="assets/css/bootstrap.min.css" rel="stylesheet" id="bootstrap-css">
-
-	<!-- Latest compiled and minified JavaScript -->
 	<script src="assets/js/jquery.min.js"></script>
 	<script src="assets/js/bootstrap.min.js"></script>
 	<style>
@@ -53,25 +45,8 @@
 		}
 	</style>
 	<script>
-		var config
-		var hostserver = 'localhost'
-		var controller = hostserver + ':9600'
-		var cleverweb = hostserver + ':9100'
-		var mediaserver = hostserver + ':9200'
-		var screenserver = hostserver + ':9300'
-		var screenapi = hostserver + ':9301'
-		var remotedesktop = hostserver + ':9400'
-		try {
-			var ipcRenderer = window.ipcRenderer
-			var remote = window.remote
-			var path = window.path
-			var os = window.os
-			var config = window.config
-			var win = remote.getCurrentWebContents()
-			var homedir = os.homedir()
-		} catch (e) {
-			console.log(e)
-		}
+		var config = window.config || {}
+		var ipcRenderer = window.ipcRenderer
 	</script>
 </head>
 
@@ -147,26 +122,34 @@
 
 	$('#save').on('click', app_config)
 	$('#home').on('click', function () {
-		appname = ipcRenderer.send('app-reload')
+		if (ipcRenderer) ipcRenderer.send('app-reload')
 	})
+
+	function isValidHost(value) {
+		if (!value) return false
+		if (value === 'localhost' || value === '127.0.0.1') return true
+		if (/^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/.test(value)) {
+			return true
+		}
+		return /^(?=.{1,253}$)[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/.test(value)
+	}
 
 	function app_config() {
 		var hostaddress = $('#hostserver').val()
 		var tempid = $('#tempid').val()
         var ctrltype = $('#ctrltype').find(":selected").val()
 		var serialkey = $('#serialkey').val()
-		var argsObj = []
-		argsObj.hostaddress = hostaddress
-		argsObj.tempid = tempid
-		argsObj.ctrltype = ctrltype
-		argsObj.serialkey = serialkey
-		if (typeof (require) != "undefined") {
-			if (/^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/
-				.test(hostaddress) ||
-				hostaddress == 'localhost' || hostaddress == '127.0.0.1') {
-				appname = ipcRenderer.send('app-configsave', argsObj)
+		var argsObj = {
+			hostaddress: hostaddress,
+			tempid: tempid,
+			ctrltype: ctrltype,
+			serialkey: serialkey
+		}
+		if (ipcRenderer) {
+			if (isValidHost(hostaddress)) {
+				ipcRenderer.send('app-configsave', argsObj)
 			} else {
-				alert('Please enter valid ip address')
+				alert('Please enter a valid IP address or hostname')
 			}
 		} else {
 			console.log('electron required')

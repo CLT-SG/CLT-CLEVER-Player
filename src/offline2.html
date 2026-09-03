@@ -114,17 +114,11 @@
   <script type="text/javascript" src="assets/js/fullpagejs/fullpage.min.js"></script>
 
   <script type="text/javascript">
-    if (typeof (require) != "undefined") {
-      var {
-        ipcRenderer,
-        desktopCapturer
-      } = require("electron")
-      var remote = require('@electron/remote')
-      var path = require('path')
-    }
     var slideTimeout
     $('#config').on('click', function () {
-      remote.getCurrentWindow().loadURL('file://' + remote.app.getAppPath() + '/src/configure.html')
+      if (window.cleverPlayer) {
+        window.cleverPlayer.loadConfigure()
+      }
     })
     $('#fullpage').fullpage({
       anchors: ['firstPage'],
