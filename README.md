@@ -232,7 +232,7 @@ Logged events include application lifecycle, Electron/OS versions, update states
 
 The upgrade enables `contextIsolation` and disables `nodeIntegration` in the player window. A preload bridge still exposes the `window.ipcRenderer` / `window.remote.getCurrentWindow().setBounds()` APIs that CLEVER web uses.
 
-Pepper Flash has been removed (unsupported in modern Chromium). Certificate errors are accepted only for private/local HTTPS hosts. Webview guests cannot enable Node integration.
+Pepper Flash has been removed (unsupported in modern Chromium). Certificate errors are accepted only for private/local HTTPS hosts. Webview guests cannot enable Node integration. Guest webviews still allow mixed content so third-party WebCast URLs (for example Google Slides) can load.
 
 ## Scripts
 

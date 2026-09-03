@@ -143,8 +143,11 @@ function setupSecurity() {
       webPreferences.nodeIntegration = false
       webPreferences.nodeIntegrationInSubFrames = false
       webPreferences.contextIsolation = true
-      webPreferences.webSecurity = true
-      webPreferences.allowRunningInsecureContent = false
+      // Guest <webview> pages default to webSecurity=true even when the
+      // parent window is locked down. Keep guests able to load third-party
+      // WebCast URLs (Google Slides, etc.).
+      webPreferences.webSecurity = false
+      webPreferences.allowRunningInsecureContent = true
       webPreferences.enableBlinkFeatures = undefined
       webPreferences.preload = path.join(app.getAppPath(), 'preload.js')
 
