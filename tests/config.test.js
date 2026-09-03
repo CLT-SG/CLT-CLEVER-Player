@@ -41,13 +41,10 @@ describe('INI parser', () => {
 ; comment
 # hash comment
 [PLAYER]
-PLAYER_NAME=Player-01
 SERIAL_KEY="ABC DEF"
 [SERVER]
 HOST=10.0.0.8
-FULLSCREEN=true
     `)
-    assert.equal(parsed.PLAYER.PLAYER_NAME, 'Player-01')
     assert.equal(parsed.PLAYER.SERIAL_KEY, 'ABC DEF')
     assert.equal(parsed.SERVER.HOST, '10.0.0.8')
   })
@@ -66,43 +63,34 @@ FULLSCREEN=true
 })
 
 describe('configuration validation', () => {
-  test('replaces an invalid SERVER_URL with the default and continues', () => {
+  test('replaces invalid SERVER values with defaults and continues', () => {
     const { sections, warnings } = validateAndApplyDefaults({
       SERVER: {
-        SERVER_URL: 'not a url',
         HOST: '10.1.2.3',
         CONTROLLER_PORT: '99999',
         HEARTBEAT_INTERVAL: 'nope'
-      },
-      DISPLAY: {
-        FULLSCREEN: 'maybe'
       },
       LOGGING: {
         LOG_LEVEL: 'TRACE'
       }
     })
-    assert.equal(sections.SERVER.SERVER_URL, '')
     assert.equal(sections.SERVER.HOST, '10.1.2.3')
     assert.equal(sections.SERVER.CONTROLLER_PORT, 80)
     assert.equal(sections.SERVER.HEARTBEAT_INTERVAL, 30)
-    assert.equal(sections.DISPLAY.FULLSCREEN, true)
     assert.equal(sections.LOGGING.LOG_LEVEL, 'info')
-    assert.ok(warnings.some((item) => item.key === 'SERVER_URL'))
     assert.ok(warnings.some((item) => item.key === 'CONTROLLER_PORT'))
-    assert.ok(warnings.some((item) => item.key === 'FULLSCREEN'))
+    assert.ok(warnings.some((item) => item.key === 'HEARTBEAT_INTERVAL'))
     assert.ok(warnings.some((item) => item.key === 'LOG_LEVEL'))
   })
 
-  test('accepts boolean synonyms and http URLs', () => {
+  test('accepts boolean synonyms and integer values', () => {
     const { sections, warnings } = validateAndApplyDefaults({
-      DISPLAY: { FULLSCREEN: 'yes', KIOSK_MODE: '0' },
-      SERVER: { SERVER_URL: 'https://server.domain.com' },
+      ADVANCED: { DEV_MODE: 'yes', DEBUG_MODE: '0' },
       NETWORK: { NETWORK_TIMEOUT: '15' }
     })
     assert.equal(warnings.length, 0)
-    assert.equal(sections.DISPLAY.FULLSCREEN, true)
-    assert.equal(sections.DISPLAY.KIOSK_MODE, false)
-    assert.equal(sections.SERVER.SERVER_URL, 'https://server.domain.com/')
+    assert.equal(sections.ADVANCED.DEV_MODE, true)
+    assert.equal(sections.ADVANCED.DEBUG_MODE, false)
     assert.equal(sections.NETWORK.NETWORK_TIMEOUT, 15)
   })
 

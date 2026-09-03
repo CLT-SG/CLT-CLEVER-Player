@@ -143,9 +143,6 @@ function createDefault(host, appDir) {
   const sections = getDefaultSections()
   const safeHost = String(host || '127.0.0.1').replace(/['"]/g, '')
   sections.SERVER.HOST = safeHost
-  if (safeHost && safeHost !== '127.0.0.1' && safeHost !== 'localhost') {
-    sections.SERVER.SERVER_URL = `http://${safeHost}`
-  }
   writeIniFile(paths.iniPath, sections)
   return applyState(paths.appDir, paths.iniPath, paths.jsPath, sections, [], { created: true })
 }
@@ -239,7 +236,6 @@ function updateFromConfigureUi(args = {}) {
     HOST: args.hostaddress,
     TEMPLATE_ID: args.tempid,
     CTRL_TYPE: args.ctrltype,
-    DEVICE_TYPE: args.ctrltype,
     SERIAL_KEY: args.serialkey
   })
 }

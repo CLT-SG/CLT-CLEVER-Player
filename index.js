@@ -64,7 +64,8 @@ function getWindowOptions(show) {
   const allowDevTools = Boolean(values.ENABLE_DEVTOOLS || values.DEV_MODE)
   return {
     backgroundColor: '#302d2d',
-    fullscreenable: values.FULLSCREEN !== false,
+    fullscreenable: !values.DEV_MODE,
+    alwaysOnTop: values.ALWAYS_ON_TOP !== false,
     resizable: false,
     movable: false,
     closable: false,
@@ -138,6 +139,13 @@ function createWindows() {
     width: 0,
     height: 0
   })
+
+  const values = configService.getValues()
+  if (values.ALWAYS_ON_TOP !== false) {
+    // 'screen-saver' level keeps the window above the OS taskbar on Windows/Linux.
+    mainWin.setAlwaysOnTop(true, 'screen-saver')
+    serverWin.setAlwaysOnTop(true, 'screen-saver')
+  }
 
   bindWindowGuards(mainWin, 'Main window')
   bindWindowGuards(serverWin, 'Server window')

@@ -92,7 +92,7 @@ A commented production template is in `config.example.ini`.
 | Old | New |
 | --- | --- |
 | `~/clever-console/config.js` | `~/clever-console/config.ini` |
-| JavaScript `var hostserver = '...'` | `HOST=...` / `SERVER_URL=...` |
+| JavaScript `var hostserver = '...'` | `HOST=...` |
 | Manual edits in JS | Text editor, no code |
 
 Existing installs do not need a manual conversion. After migration you will see:
@@ -108,7 +108,6 @@ Runtime fields used by CLEVER web (`hostserver`, `controller`, `tempid`, `ctrlty
 
 ```ini
 [PLAYER]
-PLAYER_NAME=Dev-Player
 SERIAL_KEY=
 TEMPLATE_ID=1
 CTRL_TYPE=console
@@ -117,10 +116,6 @@ CTRL_TYPE=console
 HOST=127.0.0.1
 CONTROLLER_PORT=80
 WEB_PORT=9100
-
-[DISPLAY]
-FULLSCREEN=false
-KIOSK_MODE=false
 
 [UPDATER]
 AUTO_UPDATE=false
@@ -131,25 +126,21 @@ DEBUG_MODE=true
 ENABLE_DEVTOOLS=true
 ```
 
+When `DEV_MODE=true`, the player runs in a normal window instead of kiosk / fullscreen so tools like DevTools are usable.
+
 ### Production example
 
 ```ini
 [PLAYER]
-PLAYER_NAME=Player-01
 SERIAL_KEY=
 TEMPLATE_ID=1
 CTRL_TYPE=videowall
 
 [SERVER]
-SERVER_URL=https://server.domain.com
 HOST=server.domain.com
 CONTROLLER_PORT=80
 HEARTBEAT_INTERVAL=30
 SYNC_INTERVAL=60
-
-[DISPLAY]
-FULLSCREEN=true
-KIOSK_MODE=true
 
 [LOGGING]
 LOG_LEVEL=INFO
@@ -169,13 +160,10 @@ ENABLE_DEVTOOLS=false
 
 ### Multi-player deployment
 
-Give each machine its own name, template, and serial. Host/ports can stay the same:
+Give each machine its own template and serial. Host/ports can stay the same:
 
 ```ini
 [PLAYER]
-PLAYER_NAME=Floor-A-Left
-PLAYER_GROUP=building-1
-PLAYER_TAGS=floor-a,left
 TEMPLATE_ID=12
 CTRL_TYPE=videowall
 
@@ -183,7 +171,7 @@ CTRL_TYPE=videowall
 HOST=10.0.0.10
 ```
 
-Copy `config.example.ini` to each player, change `PLAYER_NAME`, `TEMPLATE_ID`, and `SERIAL_KEY`, then start the app.
+Copy `config.example.ini` to each player, change `TEMPLATE_ID` and `SERIAL_KEY`, then start the app.
 
 ## Production build
 
@@ -361,7 +349,7 @@ Logged events include application lifecycle, Electron/OS versions, update states
 
 | Problem | What to check |
 | --- | --- |
-| White screen / offline page | LAN cable, CLEVER server power, `HOST` / `SERVER_URL` in `~/clever-console/config.ini` |
+| White screen / offline page | LAN cable, CLEVER server power, `HOST` in `~/clever-console/config.ini` |
 | Activation page | Serial key must match SHA-256 of this machine's MAC address |
 | Update never appears | App must be installed from a GitHub Release, not `npm run dev`. Check `updater.log` |
 | `latest.yml` missing | Release workflow failed, or Linux/mac assets were published without the Windows job |

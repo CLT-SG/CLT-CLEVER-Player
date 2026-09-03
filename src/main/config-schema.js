@@ -7,21 +7,13 @@ const CTRL_TYPES = ['console', 'videowall']
 const UPDATE_CHANNELS = ['latest', 'beta', 'alpha']
 
 const SCHEMA = [
-  { section: 'PLAYER', key: 'PLAYER_NAME', type: 'string', default: 'Player-01', comment: 'Display name for this player' },
-  { section: 'PLAYER', key: 'PLAYER_LOCATION', type: 'string', default: '', comment: 'Optional site or room name' },
-  { section: 'PLAYER', key: 'PLAYER_DESCRIPTION', type: 'string', default: '', comment: 'Optional description' },
-  { section: 'PLAYER', key: 'PLAYER_GROUP', type: 'string', default: '', comment: 'Optional player group' },
-  { section: 'PLAYER', key: 'PLAYER_TAGS', type: 'string', default: '', comment: 'Optional comma-separated tags' },
   { section: 'PLAYER', key: 'SERIAL_KEY', type: 'string', default: '', comment: 'License / activation serial key' },
   { section: 'PLAYER', key: 'TEMPLATE_ID', type: 'string', default: '1', comment: 'Playlist / template id from CLEVER' },
   { section: 'PLAYER', key: 'CTRL_TYPE', type: 'enum', values: CTRL_TYPES, default: 'console', comment: 'console or videowall' },
 
   { section: 'DEVICE', key: 'DEVICE_ID', type: 'string', default: '', comment: 'Optional device identifier' },
   { section: 'DEVICE', key: 'DEVICE_SERIAL', type: 'string', default: '', comment: 'Optional hardware serial' },
-  { section: 'DEVICE', key: 'DEVICE_TYPE', type: 'string', default: 'console', comment: 'Device type (console or videowall)' },
 
-  { section: 'SERVER', key: 'SERVER_URL', type: 'url', default: '', comment: 'Optional full server URL, for example https://server.domain.com' },
-  { section: 'SERVER', key: 'API_URL', type: 'url', default: '', comment: 'Optional API URL, for example https://server.domain.com/api' },
   { section: 'SERVER', key: 'HOST', type: 'host', default: '127.0.0.1', comment: 'CLEVER server IP or hostname (no http://)' },
   { section: 'SERVER', key: 'CONTROLLER_PORT', type: 'port', default: 80, comment: 'CLEVER controller port' },
   { section: 'SERVER', key: 'WEB_PORT', type: 'port', default: 9100, comment: 'CLEVER web hosting port' },
@@ -33,23 +25,13 @@ const SCHEMA = [
   { section: 'SERVER', key: 'HEARTBEAT_RETRY', type: 'integer', min: 0, max: 20, default: 3, comment: 'Heartbeat retry count' },
   { section: 'SERVER', key: 'SYNC_INTERVAL', type: 'integer', min: 5, max: 3600, default: 60, comment: 'Content sync interval in seconds' },
 
-  { section: 'DISPLAY', key: 'FULLSCREEN', type: 'boolean', default: true, comment: 'Open the player in fullscreen' },
-  { section: 'DISPLAY', key: 'KIOSK_MODE', type: 'boolean', default: true, comment: 'Lock the window as a kiosk' },
+  { section: 'DISPLAY', key: 'ALWAYS_ON_TOP', type: 'boolean', default: true, comment: 'Keep player windows above other apps and the taskbar' },
 
   { section: 'CONTENT', key: 'CACHE_ENABLED', type: 'boolean', default: true, comment: 'Enable local content cache' },
   { section: 'CONTENT', key: 'CACHE_PATH', type: 'path', default: 'cache', comment: 'Cache folder (relative to ~/clever-console or absolute)' },
   { section: 'CONTENT', key: 'CACHE_SIZE_MB', type: 'integer', min: 1, max: 1000000, default: 5000, comment: 'Maximum cache size in megabytes' },
   { section: 'CONTENT', key: 'CACHE_CLEANUP_DAYS', type: 'integer', min: 1, max: 3650, default: 30, comment: 'Delete unused cache files after this many days' },
   { section: 'CONTENT', key: 'DOWNLOAD_RETRY', type: 'integer', min: 0, max: 20, default: 3, comment: 'Download retry count' },
-
-  { section: 'PLAYBACK', key: 'DEFAULT_VOLUME', type: 'integer', min: 0, max: 100, default: 80, comment: 'Default volume 0-100' },
-  { section: 'PLAYBACK', key: 'MUTE', type: 'boolean', default: false, comment: 'Start muted' },
-  { section: 'PLAYBACK', key: 'WEBVIEW_ZOOM', type: 'integer', min: 25, max: 500, default: 100, comment: 'Webview zoom percent' },
-  { section: 'PLAYBACK', key: 'PLAYBACK_RETRY_COUNT', type: 'integer', min: 0, max: 20, default: 3, comment: 'Playback retry count' },
-  { section: 'PLAYBACK', key: 'MEDIA_TIMEOUT', type: 'integer', min: 1, max: 3600, default: 60, comment: 'Media timeout in seconds' },
-  { section: 'PLAYBACK', key: 'MEDIA_LOAD_TIMEOUT', type: 'integer', min: 1, max: 3600, default: 60, comment: 'Media load timeout in seconds' },
-  { section: 'PLAYBACK', key: 'WEBVIEW_LOAD_TIMEOUT', type: 'integer', min: 1, max: 3600, default: 120, comment: 'Webview load timeout in seconds' },
-  { section: 'PLAYBACK', key: 'PDF_RENDER_TIMEOUT', type: 'integer', min: 1, max: 3600, default: 60, comment: 'PDF render timeout in seconds' },
 
   { section: 'SCREENSHOT', key: 'SCREENSHOT_ENABLED', type: 'boolean', default: true, comment: 'Allow local screenshot API' },
   { section: 'SCREENSHOT', key: 'SCREENSHOT_INTERVAL', type: 'integer', min: 5, max: 86400, default: 300, comment: 'Screenshot interval in seconds' },
@@ -300,29 +282,9 @@ function flattenSections(sections) {
   return values
 }
 
-function hostFromUrl(urlValue) {
-  const parsed = parseUrl(urlValue)
-  if (!parsed) {
-    return ''
-  }
-  try {
-    return new URL(parsed).hostname
-  } catch {
-    return ''
-  }
-}
-
 function resolveHost(values) {
-  const serverHost = hostFromUrl(values.SERVER_URL)
   const host = String(values.HOST || '').trim()
-  const isLocalPlaceholder = !host || host === '127.0.0.1' || host === 'localhost'
-  if (serverHost && isLocalPlaceholder) {
-    return serverHost
-  }
-  if (host) {
-    return host
-  }
-  return serverHost || '127.0.0.1'
+  return host || '127.0.0.1'
 }
 
 function toLegacyConfig(sections, extras = {}) {
@@ -334,9 +296,7 @@ function toLegacyConfig(sections, extras = {}) {
   const screenPort = String(values.SCREEN_PORT)
   const screenApiPort = String(values.SCREEN_API_PORT)
   const remotePort = String(values.REMOTE_DESKTOP_PORT)
-  const ctrltype = CTRL_TYPES.includes(values.CTRL_TYPE)
-    ? values.CTRL_TYPE
-    : (CTRL_TYPES.includes(String(values.DEVICE_TYPE).toLowerCase()) ? String(values.DEVICE_TYPE).toLowerCase() : 'console')
+  const ctrltype = CTRL_TYPES.includes(values.CTRL_TYPE) ? values.CTRL_TYPE : 'console'
 
   return {
     hostserver: host,
@@ -360,7 +320,6 @@ function toLegacyConfig(sections, extras = {}) {
     tempid: String(values.TEMPLATE_ID),
     serialkey: String(values.SERIAL_KEY),
     ctrltype,
-    playerName: values.PLAYER_NAME,
     settings: sections,
     values,
     ...extras
@@ -396,7 +355,6 @@ function legacyJsToSections(legacy) {
   const host = parseHost(legacy.hostserver)
   if (host) {
     sections.SERVER.HOST = host
-    sections.SERVER.SERVER_URL = `http://${host}`
   }
   const assignPort = (key, raw) => {
     const parsed = parseInteger(raw)
@@ -418,7 +376,6 @@ function legacyJsToSections(legacy) {
   const ctrl = String(legacy.ctrltype || '').trim().toLowerCase()
   if (CTRL_TYPES.includes(ctrl)) {
     sections.PLAYER.CTRL_TYPE = ctrl
-    sections.DEVICE.DEVICE_TYPE = ctrl
   }
   return sections
 }

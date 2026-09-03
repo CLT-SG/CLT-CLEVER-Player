@@ -179,15 +179,11 @@ function applyWindowMode(win, values) {
     height: workArea.height
   })
   try {
-    if (values && values.KIOSK_MODE) {
-      win.setKiosk(true)
-    } else {
+    if (values && values.DEV_MODE) {
       win.setKiosk(false)
-      if (values && values.FULLSCREEN) {
-        win.setFullScreen(true)
-      } else {
-        win.setFullScreen(false)
-      }
+      win.setFullScreen(false)
+    } else {
+      win.setKiosk(true)
     }
   } catch {
     // Some platforms reject kiosk/fullscreen changes while the window is hidden.
