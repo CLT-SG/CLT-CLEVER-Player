@@ -7,6 +7,15 @@ const shutdown = require('electron-shutdown-command')
 const si = require('systeminformation')
 const { getLoggers } = require('./src/main/logger')
 const configService = require('./src/main/config-service')
+const {
+  ACTIONS,
+  normalizePayload,
+  isFullReload,
+  isIncremental,
+  buildRuntimeScript,
+  describeUpdate,
+  shouldFallbackToReload
+} = require('./src/main/slot-sync')
 
 const port = 9000
 let mainWindow
@@ -29,6 +38,61 @@ function getSettings() {
     return configService.getValues()
   } catch {
     return {}
+  }
+}
+
+function previewUrl(config, templateId, pushed) {
+  const id = String(templateId ?? config.tempid ?? '').replace(/['"\r\n]/g, '')
+  return 'http://' + config.controller + '/preview/' + id + '/videowall/' + (pushed ? 'true' : 'false')
+}
+
+async function reloadLayout(payload) {
+  const { playerLog } = getLoggers()
+  const config = loadConfig()
+  if (!config) {
+    throw new Error('Config missing')
+  }
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    throw new Error('Main window unavailable')
+  }
+
+  const templateId = payload && payload.template_id ? payload.template_id : config.tempid
+  const safeId = String(templateId ?? '').replace(/['"\r\n]/g, '')
+  if (safeId) {
+    configService.updateValues({ TEMPLATE_ID: safeId })
+  }
+
+  if (config.ctrltype === 'videowall') {
+    await mainWindow.loadURL(previewUrl(config, safeId || config.tempid, Boolean(payload && payload.pushed)))
+    playerLog.info('[INFO] Layout reload')
+  }
+
+  return { applied: true, action: ACTIONS.RELOAD_LAYOUT }
+}
+
+async function applyRuntimeUpdate(payload) {
+  const { playerLog, errorLog } = getLoggers()
+  const normalized = normalizePayload(payload)
+  describeUpdate(normalized).forEach((line) => playerLog.info(line))
+
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    throw new Error('Main window unavailable')
+  }
+
+  if (isFullReload(normalized) || !isIncremental(normalized)) {
+    return reloadLayout(normalized)
+  }
+
+  try {
+    const result = await mainWindow.webContents.executeJavaScript(buildRuntimeScript(normalized), true)
+    if (shouldFallbackToReload(result)) {
+      playerLog.warn('Incremental update was not applied, falling back to layout reload')
+      return reloadLayout(normalized)
+    }
+    return result || { applied: true, action: normalized.action }
+  } catch (error) {
+    errorLog.warn('Incremental slot update failed, falling back to layout reload', error)
+    return reloadLayout(normalized)
   }
 }
 
@@ -139,8 +203,16 @@ function createApp() {
         await mainWindow.webContents.executeJavaScript(
           `window.localStorage.setItem("templateData", ${encoded});`
         )
-        await mainWindow.loadURL('http://' + config.controller + '/preview/' + config.tempid + '/videowall/true')
-        playerLog.info('Playlist changed')
+        const incoming = normalizePayload(Object.assign({}, req.body, {
+          action: (req.body && req.body.action) || ACTIONS.RELOAD_LAYOUT,
+          pushed: true
+        }))
+        if (isIncremental(incoming)) {
+          await applyRuntimeUpdate(incoming)
+        } else {
+          await mainWindow.loadURL(previewUrl(config, config.tempid, true))
+          playerLog.info('[INFO] Layout reload')
+        }
       }
       log.info('PUSH CONSOLE : Pushed from console preset updated successfully.')
       return res.status(200).end('Push to console ok')
@@ -159,10 +231,21 @@ function createApp() {
         return res.status(500).end('Config missing')
       }
       const safeId = String(templateId ?? '').replace(/['"\r\n]/g, '')
-      configService.updateValues({ TEMPLATE_ID: safeId })
+      if (safeId) {
+        configService.updateValues({ TEMPLATE_ID: safeId })
+      }
+      const payload = normalizePayload(Object.assign({}, req.body, {
+        template_id: req.body && (req.body.template_id || req.body.id),
+        action: (req.body && req.body.action) || ACTIONS.RELOAD_LAYOUT
+      }))
       if (config.ctrltype === 'videowall' && mainWindow && !mainWindow.isDestroyed()) {
-        await mainWindow.loadURL('http://' + config.controller + '/preview/' + safeId + '/videowall/false')
-        playerLog.info('Playlist changed', safeId)
+        if (isIncremental(payload)) {
+          await applyRuntimeUpdate(payload)
+        } else {
+          await mainWindow.loadURL(previewUrl(config, safeId, false))
+          playerLog.info('Playlist changed', safeId)
+          playerLog.info('[INFO] Layout reload')
+        }
       }
       if (config.ctrltype === 'console') {
         return res.status(200).end('Not allowed')
@@ -174,6 +257,25 @@ function createApp() {
       res.status(500).send('Internal Server Error')
     }
   })
+
+  async function handleIncrementalRoute(req, res, defaultAction) {
+    const { errorLog } = getLoggers()
+    try {
+      const payload = normalizePayload(Object.assign({}, req.body, {
+        action: (req.body && req.body.action) || defaultAction
+      }))
+      const result = await applyRuntimeUpdate(payload)
+      return res.status(200).json(result)
+    } catch (error) {
+      errorLog.error('Error:', error)
+      return res.status(500).send('Internal Server Error')
+    }
+  }
+
+  api.post('/api/sync', (req, res) => handleIncrementalRoute(req, res, ACTIONS.SLOT_UPDATE))
+  api.post('/api/slot_update', (req, res) => handleIncrementalRoute(req, res, ACTIONS.SLOT_UPDATE))
+  api.post('/api/playlist_update', (req, res) => handleIncrementalRoute(req, res, ACTIONS.PLAYLIST_UPDATE))
+  api.post('/api/content_update', (req, res) => handleIncrementalRoute(req, res, ACTIONS.CONTENT_UPDATE))
 
   api.get('/api/getScreenshot', async (req, res) => {
     const { errorLog } = getLoggers()
