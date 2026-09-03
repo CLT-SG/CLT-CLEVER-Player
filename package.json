@@ -1,6 +1,6 @@
 {
   "name": "cleverplayer",
-  "version": "4.2.0",
+  "version": "4.2.5",
   "description": "CLEVER Console & Video Wall Player",
   "main": "index.js",
   "license": "ISC",
@@ -29,7 +29,6 @@
     "package": "electron-builder --publish never",
     "package:win": "electron-builder --win --x64 --publish never",
     "package:linux": "electron-builder --linux --x64 --publish never",
-    "package:mac": "electron-builder --mac --publish never",
     "release": "electron-builder --publish always",
     "postinstall": "electron-builder install-app-deps",
     "win64": "npm run package:win",
@@ -115,16 +114,6 @@
           "StartupWMClass": "cleverplayer"
         }
       }
-    },
-    "mac": {
-      "category": "public.app-category.utilities",
-      "target": [
-        "dmg",
-        "zip"
-      ],
-      "icon": "build/icon/clt.icns",
-      "hardenedRuntime": true,
-      "gatekeeperAssess": false
     }
   }
 }

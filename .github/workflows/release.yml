@@ -70,9 +70,6 @@ jobs:
           - name: Linux
             os: ubuntu-latest
             args: --linux --x64
-          - name: macOS
-            os: macos-latest
-            args: --mac
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -93,14 +90,17 @@ jobs:
         run: npm ci
 
       - name: Package and publish installer
+        shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CSC_LINK: ${{ secrets.CSC_LINK }}
           CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-        run: npx electron-builder ${{ matrix.args }} --publish always
+        run: |
+          # Drop empty CSC_LINK so electron-builder doesn't treat "" as a file path.
+          if [ -z "${CSC_LINK:-}" ]; then
+            unset CSC_LINK CSC_KEY_PASSWORD
+          fi
+          npx electron-builder ${{ matrix.args }} --publish always
 
       - name: Upload build artifacts for debugging
         if: always()
@@ -113,7 +113,5 @@ jobs:
             build/release/*.blockmap
             build/release/*.deb
             build/release/*.AppImage
-            build/release/*.dmg
-            build/release/*.zip
           if-no-files-found: warn
           retention-days: 14
