@@ -58,13 +58,18 @@ function normalizePayload(body) {
   }
 
   slots = slots.map((slot, offset) => {
-    const index = Number.isInteger(slot && slot.index) ? slot.index : offset
-    const letter = slot && typeof slot.slot === 'string' && slot.slot
-      ? slot.slot
+    const parsedIndex = Number(slot && slot.index)
+    const index = Number.isInteger(parsedIndex) && parsedIndex >= 0 ? parsedIndex : offset
+    const rawSlot = slot && slot.slot
+    const numericSlot = rawSlot !== undefined && rawSlot !== null && rawSlot !== '' && /^\d+$/.test(String(rawSlot))
+    const letter = typeof rawSlot === 'string' && rawSlot && !numericSlot
+      ? rawSlot
       : slotLetter(index)
+    const slotId = (slot && (slot.slot_id || slot.id)) || (numericSlot ? Number(rawSlot) : null)
     return Object.assign({}, slot, {
       index,
-      slot: letter
+      slot: letter,
+      slot_id: slotId || (slot && slot.slot_id) || null
     })
   })
 

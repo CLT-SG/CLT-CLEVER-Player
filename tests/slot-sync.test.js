@@ -27,6 +27,19 @@ describe('slot sync runtime patch engine', () => {
     assert.equal(isIncremental(payload), false)
   })
 
+  test('numeric slot ids in a payload keep the cell index so the replacement lands on the right cell', () => {
+    const payload = normalizePayload({
+      action: 'slot_update',
+      slots: [{ index: 0, slot: 2, slot_id: 2, old_slot_id: 83 }]
+    })
+    assert.equal(payload.action, ACTIONS.SLOT_UPDATE)
+    assert.equal(payload.slots[0].index, 0)
+    assert.equal(payload.slots[0].slot, 'A')
+    assert.equal(payload.slots[0].slot_id, 2)
+    assert.equal(isIncremental(payload), true)
+    assert.equal(isFullReload(payload), false)
+  })
+
   test('accepts slot_update without rebuilding the layout', () => {
     const payload = normalizePayload({
       action: 'slot_update',
