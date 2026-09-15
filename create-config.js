@@ -9,7 +9,7 @@ const { getLocalFileUrl } = require('./src/main/security')
 const { getLoggers } = require('./src/main/logger')
 const { getAppDir } = require('./src/main/paths')
 const configService = require('./src/main/config-service')
-const { getLegacyWorkAreaBounds, resolveWindowChrome } = require('./src/main/window-bounds')
+const { applyWindowMode } = require('./src/main/window-bounds')
 
 class CreateConfig {
   static async createConfigFile(ipAddress, appDir, ex) {
@@ -150,7 +150,7 @@ class CreateConfig {
         if (config.ctrltype === 'console' && serverWin && !serverWin.isDestroyed()) {
           await mainWin.loadURL('http://' + config.controller + '/preview/login')
           serverWin.show()
-          applyWindowMode(serverWin, values)
+          applyWindowMode(serverWin, values, screen.getPrimaryDisplay())
           await serverWin.loadURL('http://' + config.controller)
           serverWin.blur()
         }
@@ -160,7 +160,7 @@ class CreateConfig {
         await mainWin.loadURL(getLocalFileUrl('src/offline.html'))
         log.warn('Server http://' + config.cleverweb + ' is offline')
       }
-      applyWindowMode(mainWin, values)
+      applyWindowMode(mainWin, values, screen.getPrimaryDisplay())
       mainWin.focus()
     } else {
       await mainWin.loadURL(getLocalFileUrl('src/activate.html'))
@@ -168,27 +168,8 @@ class CreateConfig {
   }
 }
 
-function applyWindowMode(win, values) {
-  if (!win || win.isDestroyed()) {
-    return
-  }
-  const chrome = resolveWindowChrome(values)
-  const bounds = getLegacyWorkAreaBounds(screen.getPrimaryDisplay())
-  try {
-    if (chrome.kiosk) {
-      win.setKiosk(true)
-      return
-    }
-    win.setKiosk(false)
-    if (chrome.fullscreen) {
-      win.setFullScreen(true)
-      return
-    }
-    win.setFullScreen(false)
-  } catch {
-    // Some platforms reject kiosk/fullscreen changes while the window is hidden.
-  }
-  win.setBounds(bounds)
+CreateConfig.applyWindowMode = function applyWindowModeToWindow(win, values) {
+  return applyWindowMode(win, values, screen.getPrimaryDisplay())
 }
 
 module.exports = CreateConfig

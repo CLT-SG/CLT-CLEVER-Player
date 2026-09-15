@@ -16,6 +16,7 @@ const {
   describeUpdate,
   shouldFallbackToReload
 } = require('./src/main/slot-sync')
+const { applyWindowMode } = require('./src/main/window-bounds')
 
 const port = 9000
 let mainWindow
@@ -46,6 +47,16 @@ function previewUrl(config, templateId, pushed) {
   return 'http://' + config.controller + '/preview/' + id + '/videowall/' + (pushed ? 'true' : 'false')
 }
 
+function refitMainWindow() {
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    return
+  }
+  if (!screen || typeof screen.getPrimaryDisplay !== 'function') {
+    return
+  }
+  applyWindowMode(mainWindow, getSettings(), screen.getPrimaryDisplay())
+}
+
 async function reloadLayout(payload) {
   const { playerLog } = getLoggers()
   const config = loadConfig()
@@ -64,6 +75,7 @@ async function reloadLayout(payload) {
 
   if (config.ctrltype === 'videowall') {
     await mainWindow.loadURL(previewUrl(config, safeId || config.tempid, Boolean(payload && payload.pushed)))
+    refitMainWindow()
     playerLog.info('[INFO] Layout reload')
   }
 
@@ -211,6 +223,7 @@ function createApp() {
           await applyRuntimeUpdate(incoming)
         } else {
           await mainWindow.loadURL(previewUrl(config, config.tempid, true))
+          refitMainWindow()
           playerLog.info('[INFO] Layout reload')
         }
       }
@@ -243,6 +256,7 @@ function createApp() {
           await applyRuntimeUpdate(payload)
         } else {
           await mainWindow.loadURL(previewUrl(config, safeId, false))
+          refitMainWindow()
           playerLog.info('Playlist changed', safeId)
           playerLog.info('[INFO] Layout reload')
         }

@@ -11,6 +11,7 @@
 | Tag rejected by workflow               | `vX.Y.Z` must equal `package.json` `"version": "X.Y.Z"`                                                                    |
 | Port already in use                    | Local control API did not bind; see `~/clever-console/logs/application.log`                                                |
 | Window hangs off the right edge        | Leave `KIOSK_MODE=false` and `FULLSCREEN=false`. The player uses the work area, not the full display. Restart after edits. |
+| Layout looks full-screen after Save/Push | The player ignores template pixel size (4K) and refits to the work area after a layout reload. Update CLEVER Player and CLEVER Service together. |
 
 ## Logs
 

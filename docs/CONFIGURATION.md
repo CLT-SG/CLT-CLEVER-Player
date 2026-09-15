@@ -61,7 +61,7 @@ Runtime fields consumed by CLEVER web (`hostserver`, `controller`, `tempid`, `ct
 | `FULLSCREEN`    | `false` | Electron fullscreen. Off by default so migrated installs keep work-area bounds. |
 | `KIOSK_MODE`    | `false` | Electron kiosk (full display, over the taskbar). Can extend past the right edge on scaled displays. |
 
-By default the player sizes itself to the primary display **work area** (DIP pixels, `x=0,y=0`), which stays inside the visible desktop at 125% / 150% / 175% Windows scaling. Leave `FULLSCREEN` and `KIOSK_MODE` off unless you need Electron's full-display modes.
+By default the player sizes itself to the primary display **work area** (DIP pixels, `x=0,y=0`), which stays inside the visible desktop at 125% / 150% / 175% Windows scaling. Leave `FULLSCREEN` and `KIOSK_MODE` off unless you need Electron's full-display modes. Saving or pushing a Video Wall layout refits the window to that same work area; the player does not grow to the template's pixel resolution (for example 3840×2160).
 
 ### `[LOGGING]`
 

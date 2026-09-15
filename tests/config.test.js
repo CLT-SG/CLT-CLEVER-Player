@@ -17,7 +17,7 @@ const {
 } = require('../src/main/config-schema')
 const configService = require('../src/main/config-service')
 const { isValidAccelerator, isPrivateHost, isValidHost } = require('../src/main/config-template')
-const { getLegacyWorkAreaBounds, resolveWindowChrome } = require('../src/main/window-bounds')
+    const { getLegacyWorkAreaBounds, clampBoundsToWorkArea, resolveWindowChrome, applyWindowMode } = require('../src/main/window-bounds')
 const { normalizeUrl, isReachable } = require('../src/main/reachable')
 
 function sampleConfigJs(host = '10.0.0.5') {
@@ -219,6 +219,45 @@ describe('window bounds', () => {
     assert.equal(chrome.kiosk, true)
     assert.equal(chrome.fullscreen, false)
     assert.equal(chrome.fullscreenable, true)
+  })
+
+  test('clamps template-resolution setBounds requests to the work area', () => {
+    const workArea = { x: 0, y: 0, width: 1536, height: 824 }
+    assert.deepEqual(
+      clampBoundsToWorkArea({ x: 0, y: 0, width: 3840, height: 2160 }, workArea),
+      { x: 0, y: 0, width: 1536, height: 824 }
+    )
+  })
+
+  test('uses work-area size when the renderer omits width or height', () => {
+    const display = { workArea: { width: 1920, height: 1040 } }
+    assert.deepEqual(
+      clampBoundsToWorkArea({ x: 10, y: 20 }, display),
+      { x: 0, y: 0, width: 1920, height: 1040 }
+    )
+  })
+
+  test('applyWindowMode refits a normal window and skips size changes in kiosk', () => {
+    const display = { workArea: { width: 1600, height: 900 } }
+    const calls = []
+    const win = {
+      isDestroyed: () => false,
+      setKiosk(value) { calls.push(['kiosk', value]) },
+      setFullScreen(value) { calls.push(['fullscreen', value]) },
+      setBounds(bounds) { calls.push(['bounds', bounds]) }
+    }
+
+    const fitted = applyWindowMode(win, { KIOSK_MODE: false, FULLSCREEN: false }, display)
+    assert.deepEqual(fitted, { x: 0, y: 0, width: 1600, height: 900 })
+    assert.deepEqual(calls, [
+      ['kiosk', false],
+      ['fullscreen', false],
+      ['bounds', { x: 0, y: 0, width: 1600, height: 900 }]
+    ])
+
+    calls.length = 0
+    applyWindowMode(win, { KIOSK_MODE: true }, display)
+    assert.deepEqual(calls, [['kiosk', true]])
   })
 })
 

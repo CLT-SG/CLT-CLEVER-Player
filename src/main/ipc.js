@@ -8,6 +8,7 @@ const { getAppDir, getHomeDir, getConfigPath } = require('./paths')
 const { getLoggers } = require('./logger')
 const { isAllowedMainNavigation } = require('./security')
 const { isValidAccelerator } = require('./config-template')
+const { getLegacyWorkAreaBounds, clampBoundsToWorkArea } = require('./window-bounds')
 const CreateConfig = require('../../create-config')
 
 function getConfig() {
@@ -184,15 +185,17 @@ function registerIpcHandlers({ getWindows, reloadPlayer }) {
       return
     }
     const win = getWindowFromEvent(event, getWindows())
-    if (!win || !bounds || typeof bounds !== 'object') {
+    if (!win || win.isDestroyed()) {
       return
     }
-    const next = {
-      x: Number(bounds.x) || 0,
-      y: Number(bounds.y) || 0,
-      width: Math.max(100, Number(bounds.width) || screen.getPrimaryDisplay().workArea.width),
-      height: Math.max(100, Number(bounds.height) || screen.getPrimaryDisplay().workArea.height)
+    if (typeof win.isKiosk === 'function' && win.isKiosk()) {
+      return
     }
+    if (typeof win.isFullScreen === 'function' && win.isFullScreen()) {
+      return
+    }
+    const workArea = getLegacyWorkAreaBounds(screen.getPrimaryDisplay())
+    const next = clampBoundsToWorkArea(bounds, workArea)
     win.setBounds(next)
   })
 
