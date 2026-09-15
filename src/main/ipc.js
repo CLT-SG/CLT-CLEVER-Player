@@ -8,6 +8,13 @@ const { getAppDir, getHomeDir, getConfigPath } = require('./paths')
 const { getLoggers } = require('./logger')
 const { isAllowedMainNavigation } = require('./security')
 const { isValidAccelerator } = require('./config-template')
+const {
+  getLegacyWorkAreaBounds,
+  resolveRendererWindowBounds,
+  isVideoWallCtrl,
+  clearExclusiveDisplayMode,
+  isExclusiveDisplayMode
+} = require('./window-bounds')
 const CreateConfig = require('../../create-config')
 
 function getConfig() {
@@ -184,14 +191,20 @@ function registerIpcHandlers({ getWindows, reloadPlayer }) {
       return
     }
     const win = getWindowFromEvent(event, getWindows())
-    if (!win || !bounds || typeof bounds !== 'object') {
+    if (!win || win.isDestroyed()) {
       return
     }
-    const next = {
-      x: Number(bounds.x) || 0,
-      y: Number(bounds.y) || 0,
-      width: Math.max(100, Number(bounds.width) || screen.getPrimaryDisplay().workArea.width),
-      height: Math.max(100, Number(bounds.height) || screen.getPrimaryDisplay().workArea.height)
+    const workArea = getLegacyWorkAreaBounds(screen.getPrimaryDisplay())
+    const values = require('./config-service').getValues()
+    const ctrltype = values.CTRL_TYPE || values.ctrltype
+    const next = resolveRendererWindowBounds(bounds, workArea, ctrltype)
+    if (isVideoWallCtrl(ctrltype)) {
+      clearExclusiveDisplayMode(win)
+      win.setBounds(next)
+      return
+    }
+    if (isExclusiveDisplayMode(win)) {
+      return
     }
     win.setBounds(next)
   })
