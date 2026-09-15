@@ -186,6 +186,11 @@ function buildScreencastUrl(baseHost, value, extras) {
   if (extra.vncPort) {
     params.push('vnc_port=' + encodeURIComponent(String(extra.vncPort)))
   }
+  if (extra.deviceId || extra.wsPort || extra.audioPath) {
+    params.push('audio=1')
+    params.push('audio_path=' + encodeURIComponent(extra.audioPath || '/audio'))
+    params.push('audio_codec=opus')
+  }
   return (baseHost || '') + (params.length ? ('?' + params.join('&')) : '')
 }
 

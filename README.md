@@ -34,6 +34,7 @@ Do **not** install Electron globally. The project pins Electron as a local
 | Topic | File |
 | --- | --- |
 | Configuration reference (`config.ini`) | [docs/CONFIGURATION.md](./docs/CONFIGURATION.md) |
+| Optional VNC WebRTC audio | [docs/AUDIO.md](./docs/AUDIO.md) |
 | Production build & deployment | [docs/PRODUCTION.md](./docs/PRODUCTION.md) |
 | Release process & GitHub Actions | [docs/RELEASE.md](./docs/RELEASE.md) |
 | Troubleshooting & logs | [docs/TROUBLESHOOTING.md](./docs/TROUBLESHOOTING.md) |

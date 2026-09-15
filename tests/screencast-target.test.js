@@ -57,6 +57,8 @@ describe('Screencast-VNC connection targets', () => {
     assert.match(url, /hostname=CLT-27AIO\.local/)
     assert.match(url, /port=8840/)
     assert.match(url, /path=screen0/)
+    assert.match(url, /audio=1/)
+    assert.match(url, /audio_path=%2Faudio/)
     assert.doesNotMatch(url, /:5900/)
   })
 })
