@@ -16,7 +16,7 @@ const {
   describeUpdate,
   shouldFallbackToReload
 } = require('./src/main/slot-sync')
-const { applyWindowMode } = require('./src/main/window-bounds')
+const { applyWindowMode, isVideoWallCtrl } = require('./src/main/window-bounds')
 
 const port = 9000
 let mainWindow
@@ -54,7 +54,11 @@ function refitMainWindow() {
   if (!screen || typeof screen.getPrimaryDisplay !== 'function') {
     return
   }
-  applyWindowMode(mainWindow, getSettings(), screen.getPrimaryDisplay())
+  const settings = getSettings()
+  if (isVideoWallCtrl(settings)) {
+    return
+  }
+  applyWindowMode(mainWindow, settings, screen.getPrimaryDisplay())
 }
 
 async function reloadLayout(payload) {
