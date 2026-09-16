@@ -12,6 +12,8 @@
 | Port already in use                    | Local control API did not bind; see `~/clever-console/logs/application.log`                                                |
 | Window hangs off the right edge        | Console: leave `KIOSK_MODE=false` and `FULLSCREEN=false` so the window stays in the work area. Video Wall: a template larger than this monitor (for example 3840×2160 on 1080p) is expected to extend past the visible desktop. |
 | Layout looks stretched or full-screen after Save/Push | Update CLEVER Player and CLEVER Service together. Video Wall windows use the template resolution; Console fills the monitor work area. |
+| VNC picture works but there is no sound | Audio is off until the overlay checkboxes are enabled. It uses a separate WebRTC connection; see [AUDIO.md](AUDIO.md). |
+| Audio overlay shows Error / Reconnecting | Leave it; VNC should stay connected. Check ScreencastApp `[audio]` logs if capture is unsupported on that OS. |
 
 ## Logs
 
