@@ -4,6 +4,7 @@ const { app, shell, session } = require('electron')
 const path = require('path')
 const { pathToFileURL } = require('url')
 const { getLoggers } = require('./logger')
+const { isTrustedLanHost, shouldAcceptCertificate } = require('./certificate-policy')
 
 function parseUrl(value) {
   try {
@@ -103,6 +104,29 @@ function loadConfigSafe() {
   }
 }
 
+const trustedSessions = new WeakSet()
+
+function applyCertificateTrust(sess, log) {
+  if (!sess || trustedSessions.has(sess)) {
+    return
+  }
+  trustedSessions.add(sess)
+  if (typeof sess.setCertificateVerifyProc !== 'function') {
+    return
+  }
+  sess.setCertificateVerifyProc((request, callback) => {
+    const hostname = request && request.hostname
+    if (isTrustedLanHost(hostname)) {
+      callback(0)
+      return
+    }
+    callback(-3)
+  })
+  if (log) {
+    log.info('LAN certificate trust enabled for session')
+  }
+}
+
 function setupSecurity() {
   const { log, errorLog } = getLoggers()
 
@@ -149,6 +173,10 @@ function setupSecurity() {
       webPreferences.enableBlinkFeatures = undefined
       webPreferences.preload = path.join(app.getAppPath(), 'preload.js')
 
+      if (params && params.partition) {
+        applyCertificateTrust(session.fromPartition(params.partition), log)
+      }
+
       if (params && params.src && !isAllowedWebviewNavigation(params.src)) {
         event.preventDefault()
         log.warn('Blocked webview src', params.src)
@@ -163,16 +191,18 @@ function setupSecurity() {
   })
 
   app.on('certificate-error', (event, _webContents, url, error, _certificate, callback) => {
-    const parsed = parseUrl(url)
-    const allow = parsed && (parsed.protocol === 'https:') && isPrivateHost(parsed.hostname)
-    if (allow) {
-      log.warn('Accepted certificate error for private host', { url, error })
+    if (shouldAcceptCertificate(url)) {
+      log.warn('Accepted certificate error for LAN Screencast-VNC host', { url, error })
       event.preventDefault()
       callback(true)
       return
     }
     errorLog.warn('Rejected certificate error', { url, error })
     callback(false)
+  })
+
+  app.on('session-created', (sess) => {
+    applyCertificateTrust(sess, log)
   })
 
   const applySessionGuards = (sess) => {
@@ -191,6 +221,7 @@ function setupSecurity() {
 
   app.whenReady().then(() => {
     applySessionGuards(session.defaultSession)
+    applyCertificateTrust(session.defaultSession, log)
     log.info('Security handlers registered')
   })
 }
@@ -205,5 +236,7 @@ module.exports = {
   isAllowedWebviewNavigation,
   isAppFileUrl,
   isPrivateHost,
-  getLocalFileUrl
+  getLocalFileUrl,
+  shouldAcceptCertificate,
+  isTrustedLanHost
 }
