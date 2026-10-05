@@ -299,6 +299,7 @@ function createApp() {
   api.post('/api/slot_update', (req, res) => handleIncrementalRoute(req, res, ACTIONS.SLOT_UPDATE))
   api.post('/api/playlist_update', (req, res) => handleIncrementalRoute(req, res, ACTIONS.PLAYLIST_UPDATE))
   api.post('/api/content_update', (req, res) => handleIncrementalRoute(req, res, ACTIONS.CONTENT_UPDATE))
+  api.post('/api/mute_update', (req, res) => handleIncrementalRoute(req, res, ACTIONS.MUTE_UPDATE))
 
   api.get('/api/getScreenshot', async (req, res) => {
     const { errorLog } = getLoggers()
