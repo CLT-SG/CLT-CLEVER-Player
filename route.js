@@ -101,12 +101,17 @@ async function applyRuntimeUpdate(payload) {
 
   try {
     const result = await mainWindow.webContents.executeJavaScript(buildRuntimeScript(normalized), true)
-    if (shouldFallbackToReload(result)) {
+    if (shouldFallbackToReload(result, normalized)) {
       playerLog.warn('Incremental update was not applied, falling back to layout reload')
       return reloadLayout(normalized)
     }
     return result || { applied: true, action: normalized.action }
   } catch (error) {
+    // Mute failures must never remount VNC / CLEVER-node connections.
+    if (normalized.action === ACTIONS.MUTE_UPDATE) {
+      errorLog.warn('Mute update failed; preserving existing CLEVER-node / VNC connection', error)
+      return { applied: false, action: ACTIONS.MUTE_UPDATE, preserved: true }
+    }
     errorLog.warn('Incremental slot update failed, falling back to layout reload', error)
     return reloadLayout(normalized)
   }
@@ -294,6 +299,7 @@ function createApp() {
   api.post('/api/slot_update', (req, res) => handleIncrementalRoute(req, res, ACTIONS.SLOT_UPDATE))
   api.post('/api/playlist_update', (req, res) => handleIncrementalRoute(req, res, ACTIONS.PLAYLIST_UPDATE))
   api.post('/api/content_update', (req, res) => handleIncrementalRoute(req, res, ACTIONS.CONTENT_UPDATE))
+  api.post('/api/mute_update', (req, res) => handleIncrementalRoute(req, res, ACTIONS.MUTE_UPDATE))
 
   api.get('/api/getScreenshot', async (req, res) => {
     const { errorLog } = getLoggers()

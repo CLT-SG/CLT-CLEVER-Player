@@ -5,13 +5,15 @@ const ACTIONS = Object.freeze({
   RELOAD_LAYOUT: 'reload_layout',
   SLOT_UPDATE: 'slot_update',
   PLAYLIST_UPDATE: 'playlist_update',
-  CONTENT_UPDATE: 'content_update'
+  CONTENT_UPDATE: 'content_update',
+  MUTE_UPDATE: 'mute_update'
 })
 
 const INCREMENTAL_ACTIONS = Object.freeze([
   ACTIONS.SLOT_UPDATE,
   ACTIONS.PLAYLIST_UPDATE,
-  ACTIONS.CONTENT_UPDATE
+  ACTIONS.CONTENT_UPDATE,
+  ACTIONS.MUTE_UPDATE
 ])
 
 function slotLetter(index) {
@@ -78,6 +80,8 @@ function normalizePayload(body) {
     template_id: source.template_id || source.templateId || source.id || null,
     layout_version: source.layout_version || null,
     layout_changed: Boolean(source.layout_changed),
+    content_id: source.content_id != null ? source.content_id : null,
+    mute: Object.prototype.hasOwnProperty.call(source, 'mute') ? !!source.mute : undefined,
     slots,
     reason: source.reason || null,
     templateData: source.templateData,
@@ -134,6 +138,12 @@ function describeUpdate(payload) {
   return slots.map((slot) => {
     const letter = slot.slot || slotLetter(slot.index)
     const slotId = slot.slot_id || slot.id || ''
+    if (payload.action === ACTIONS.MUTE_UPDATE) {
+      const muted = Object.prototype.hasOwnProperty.call(slot, 'mute')
+        ? slot.mute
+        : payload.mute
+      return `[INFO] Slot ${letter || slot.index} ${muted ? 'muted' : 'unmuted'} (soft)`
+    }
     if (payload.action === ACTIONS.PLAYLIST_UPDATE) {
       return `[INFO] Playlist ${slotId || letter} updated`
     }
@@ -147,7 +157,11 @@ function describeUpdate(payload) {
   })
 }
 
-function shouldFallbackToReload(result) {
+function shouldFallbackToReload(result, payload) {
+  // Mute-only updates must never remount the layout / CLEVER-node webviews.
+  if (payload && payload.action === ACTIONS.MUTE_UPDATE) {
+    return false
+  }
   if (!result) {
     return true
   }
