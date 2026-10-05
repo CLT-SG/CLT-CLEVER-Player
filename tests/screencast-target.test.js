@@ -61,4 +61,22 @@ describe('Screencast-VNC connection targets', () => {
     assert.match(url, /audio_path=%2Faudio/)
     assert.doesNotMatch(url, /:5900/)
   })
+
+  test('multiple slots can target the same ScreencastApp device path independently', () => {
+    const slotA = buildScreencastUrl('/screencast', 'CLESS-33:0', {
+      deviceId: 'abc',
+      wsPort: 8840,
+      vncPort: 5900
+    })
+    const slotB = buildScreencastUrl('/screencast', 'CLESS-33:0', {
+      deviceId: 'abc',
+      wsPort: 8840,
+      vncPort: 5900
+    })
+    assert.match(slotA, /hostname=CLESS-33/)
+    assert.match(slotB, /hostname=CLESS-33/)
+    assert.match(slotA, /path=screen0/)
+    assert.match(slotB, /path=screen0/)
+    assert.equal(slotA, slotB)
+  })
 })
