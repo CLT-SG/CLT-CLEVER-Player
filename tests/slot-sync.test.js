@@ -101,6 +101,30 @@ describe('slot sync runtime patch engine', () => {
       }),
       ['[INFO] WebCast Slot 3 soft reloaded']
     )
+    assert.deepEqual(
+      describeUpdate({
+        action: 'mute_update',
+        mute: true,
+        slots: [{ slot: 'A', mute: true }]
+      }),
+      ['[INFO] Slot A muted (soft)']
+    )
+  })
+
+  test('mute_update is incremental and never forces a layout reload', () => {
+    const payload = normalizePayload({
+      action: 'mute_update',
+      content_id: 42,
+      mute: false,
+      slots: [{ index: 0, slot_id: 7, mute: false }]
+    })
+    assert.equal(payload.action, ACTIONS.MUTE_UPDATE)
+    assert.equal(payload.content_id, 42)
+    assert.equal(payload.mute, false)
+    assert.equal(isFullReload(payload), false)
+    assert.equal(isIncremental(payload), true)
+    assert.equal(shouldFallbackToReload(null, payload), false)
+    assert.equal(shouldFallbackToReload({ applied: false }, payload), false)
   })
 
   test('falls back to reload_layout when the renderer cannot apply a patch', () => {

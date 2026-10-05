@@ -101,12 +101,17 @@ async function applyRuntimeUpdate(payload) {
 
   try {
     const result = await mainWindow.webContents.executeJavaScript(buildRuntimeScript(normalized), true)
-    if (shouldFallbackToReload(result)) {
+    if (shouldFallbackToReload(result, normalized)) {
       playerLog.warn('Incremental update was not applied, falling back to layout reload')
       return reloadLayout(normalized)
     }
     return result || { applied: true, action: normalized.action }
   } catch (error) {
+    // Mute failures must never remount VNC / CLEVER-node connections.
+    if (normalized.action === ACTIONS.MUTE_UPDATE) {
+      errorLog.warn('Mute update failed; preserving existing CLEVER-node / VNC connection', error)
+      return { applied: false, action: ACTIONS.MUTE_UPDATE, preserved: true }
+    }
     errorLog.warn('Incremental slot update failed, falling back to layout reload', error)
     return reloadLayout(normalized)
   }
