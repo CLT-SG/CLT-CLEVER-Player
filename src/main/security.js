@@ -131,6 +131,12 @@ function setupSecurity() {
   const { log, errorLog } = getLoggers()
 
   app.on('web-contents-created', (_event, contents) => {
+    // Apply LAN cert trust to every session, including guest webview
+    // partitions used by Screencast-VNC slots (screencast-<id>).
+    if (contents && contents.session) {
+      applyCertificateTrust(contents.session, log)
+    }
+
     contents.setWindowOpenHandler(({ url }) => {
       if (contents.getType() === 'webview' && isAllowedWebviewNavigation(url)) {
         return { action: 'allow' }
@@ -175,6 +181,8 @@ function setupSecurity() {
 
       if (params && params.partition) {
         applyCertificateTrust(session.fromPartition(params.partition), log)
+      } else if (contents && contents.session) {
+        applyCertificateTrust(contents.session, log)
       }
 
       if (params && params.src && !isAllowedWebviewNavigation(params.src)) {
@@ -222,7 +230,7 @@ function setupSecurity() {
   app.whenReady().then(() => {
     applySessionGuards(session.defaultSession)
     applyCertificateTrust(session.defaultSession, log)
-    log.info('Security handlers registered')
+    log.info('Security handlers registered (LAN wss certificate trust enabled)')
   })
 }
 

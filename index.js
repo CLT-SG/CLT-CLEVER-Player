@@ -48,6 +48,12 @@ if (!gotTheLock) {
   })
 }
 
+// ScreencastApp websockify uses a local self-signed cert on :8840.
+// Chromium can reject that cert for guest-webview wss:// handshakes even
+// when /probe (Node rejectUnauthorized:false) reports HTTPS /status PASS.
+// Accept LAN appliance certificates before app ready so Video Wall slots
+// can open wss://<ip>:8840/screenN.
+app.commandLine.appendSwitch('ignore-certificate-errors')
 app.commandLine.appendSwitch('disable-http-cache')
 
 function applyRuntimeSettings(snapshot) {
