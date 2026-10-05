@@ -16,7 +16,11 @@ If audio fails or reconnects, the VNC picture stays up.
 
 ## Slot mute and fullscreen background mute
 
-Slot mute/unmute uses a compact 🔇 / 🔊 icon on each slot. **Mute Background Slots During Full Screen** is managed in the CLEVER-Service preview UI that this player loads (Video Wall and Console). The player hosts those pages and applies mute through Electron `<webview>.setAudioMuted(...)`.
+Slot mute/unmute uses a compact 🔇 / 🔊 icon on the **left** side of each Video Wall / Console slot. Mute only changes audio (Electron `setAudioMuted` plus guest HTML/noVNC mute) and must never remount Screencast-VNC or recreate CLEVER-node connections. Soft `mute_update` sync keeps peers aligned without layout reload.
+
+Webcast slot toolbars default to the **bottom** of the slot and can be dragged within the slot bounds.
+
+**Mute Background Slots During Full Screen** is managed in the CLEVER-Service preview UI that this player loads (Video Wall and Console).
 
 When background muting is enabled:
 
