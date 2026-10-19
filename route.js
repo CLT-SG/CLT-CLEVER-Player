@@ -44,7 +44,12 @@ function getSettings() {
 
 function previewUrl(config, templateId, pushed) {
   const id = String(templateId ?? config.tempid ?? '').replace(/['"\r\n]/g, '')
-  return 'http://' + config.controller + '/preview/' + id + '/videowall/' + (pushed ? 'true' : 'false')
+  let url = 'http://' + config.controller + '/preview/' + id + '/videowall/' + (pushed ? 'true' : 'false')
+  const wallId = String(config.videowall_id ?? config.videowallId ?? '').replace(/['"\r\n]/g, '')
+  if (wallId) {
+    url += '?videowall_id=' + encodeURIComponent(wallId)
+  }
+  return url
 }
 
 function refitMainWindow() {
@@ -253,18 +258,33 @@ function createApp() {
         return res.status(500).end('Config missing')
       }
       const safeId = String(templateId ?? '').replace(/['"\r\n]/g, '')
+      const wallId = req.body && req.body.videowall_id != null
+        ? String(req.body.videowall_id).replace(/['"\r\n]/g, '')
+        : ''
+      const updates = {}
       if (safeId) {
-        configService.updateValues({ TEMPLATE_ID: safeId })
+        updates.TEMPLATE_ID = safeId
+      }
+      if (wallId) {
+        updates.VIDEOWALL_ID = wallId
+      }
+      if (Object.keys(updates).length) {
+        configService.updateValues(updates)
+      }
+      const refreshed = loadConfig() || config
+      if (wallId) {
+        refreshed.videowall_id = wallId
       }
       const payload = normalizePayload(Object.assign({}, req.body, {
         template_id: req.body && (req.body.template_id || req.body.id),
+        videowall_id: wallId || refreshed.videowall_id,
         action: (req.body && req.body.action) || ACTIONS.RELOAD_LAYOUT
       }))
       if (config.ctrltype === 'videowall' && mainWindow && !mainWindow.isDestroyed()) {
         if (isIncremental(payload)) {
           await applyRuntimeUpdate(payload)
         } else {
-          await mainWindow.loadURL(previewUrl(config, safeId, false))
+          await mainWindow.loadURL(previewUrl(refreshed, safeId, false))
           refitMainWindow()
           playerLog.info('Playlist changed', safeId)
           playerLog.info('[INFO] Layout reload')
