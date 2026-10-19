@@ -8,7 +8,7 @@ inside Electron `<webview>` slots.
 RTSP camera / KVM-ENC
   → MediaMTX (direct RTSP pull; no FFmpeg by default)
   → WebRTC WHEP (:8889)
-  → CLEVER-node http://<controller>:9100/mediamtx/?stream=camera{id}|screencast{id}
+  → CLEVER-node http://<controller>:9100/mediamtx/?stream=camera{id}|screencast{id}&hostname=<name>
   → CLEVER-Player slot webview
 ```
 
