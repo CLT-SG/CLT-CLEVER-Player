@@ -145,7 +145,13 @@ class CreateConfig {
       if (status) {
         playerLog.info('Device connection status online')
         if (config.ctrltype === 'videowall') {
-          await mainWin.loadURL('http://' + config.controller + '/preview/' + config.tempid + '/videowall/false')
+          {
+            let preview = 'http://' + config.controller + '/preview/' + config.tempid + '/videowall/false'
+            if (config.videowall_id) {
+              preview += '?videowall_id=' + encodeURIComponent(String(config.videowall_id))
+            }
+            await mainWin.loadURL(preview)
+          }
         }
         if (config.ctrltype === 'console' && serverWin && !serverWin.isDestroyed()) {
           await mainWin.loadURL('http://' + config.controller + '/preview/login')
