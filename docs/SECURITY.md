@@ -9,5 +9,8 @@
 - Webview guests cannot enable Node integration.
 - Guest webviews allow mixed content so that third-party WebCast URLs
   (for example Google Slides) can load.
+- ONLYOFFICE Live Document viewers load DocsAPI from the CLEVER host
+  `/onlyoffice/` proxy by default. Optional `ONLYOFFICE_HOST` extends
+  the main-window navigation allowlist when Document Server is separate.
 - Credentials, tokens, serial keys, and private keys are redacted from
   logs.

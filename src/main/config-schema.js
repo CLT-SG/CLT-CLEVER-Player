@@ -17,6 +17,7 @@ const SCHEMA = [
 
   { section: 'SERVER', key: 'HOST', type: 'host', default: '127.0.0.1', comment: 'CLEVER server IP or hostname (no http://)' },
   { section: 'SERVER', key: 'CONTROLLER_PORT', type: 'port', default: 80, comment: 'CLEVER controller port' },
+  { section: 'SERVER', key: 'ONLYOFFICE_HOST', type: 'string', default: '', comment: 'Optional ONLYOFFICE Docs hostname when not proxied via CLEVER HOST (leave empty if using /onlyoffice on the controller)' },
   { section: 'SERVER', key: 'WEB_PORT', type: 'port', default: 9100, comment: 'CLEVER web hosting port' },
   { section: 'SERVER', key: 'MEDIA_PORT', type: 'port', default: 9200, comment: 'Media server port' },
   { section: 'SERVER', key: 'SCREEN_PORT', type: 'port', default: 9300, comment: 'Screen cast web port' },
@@ -301,6 +302,8 @@ function toLegacyConfig(sections, extras = {}) {
   const remotePort = String(values.REMOTE_DESKTOP_PORT)
   const ctrltype = CTRL_TYPES.includes(values.CTRL_TYPE) ? values.CTRL_TYPE : 'console'
 
+  const onlyofficeHost = String(values.ONLYOFFICE_HOST || '').trim()
+
   return {
     hostserver: host,
     controllerport: controllerPort,
@@ -314,6 +317,7 @@ function toLegacyConfig(sections, extras = {}) {
     screenserver: `${host}:${screenPort}`,
     screenapi: `${host}:${screenApiPort}`,
     remotedesktop: `${host}:${remotePort}`,
+    onlyoffice: onlyofficeHost || null,
     controllerport1: controllerPort,
     cleverwebport1: webPort,
     mediaserverport1: mediaPort,
