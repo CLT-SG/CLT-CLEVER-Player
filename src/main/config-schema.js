@@ -9,7 +9,6 @@ const UPDATE_CHANNELS = ['latest', 'beta', 'alpha']
 const SCHEMA = [
   { section: 'PLAYER', key: 'SERIAL_KEY', type: 'string', default: '', comment: 'License / activation serial key' },
   { section: 'PLAYER', key: 'TEMPLATE_ID', type: 'string', default: '1', comment: 'Playlist / template id from CLEVER' },
-  { section: 'PLAYER', key: 'VIDEOWALL_ID', type: 'string', default: '', comment: 'CLEVER Video Wall id for group-based content authorization' },
   { section: 'PLAYER', key: 'CTRL_TYPE', type: 'enum', values: CTRL_TYPES, default: 'console', comment: 'console or videowall' },
 
   { section: 'DEVICE', key: 'DEVICE_ID', type: 'string', default: '', comment: 'Optional device identifier' },
@@ -321,7 +320,6 @@ function toLegacyConfig(sections, extras = {}) {
     screenapiport1: screenApiPort,
     timeout: Number(values.NETWORK_TIMEOUT) * 1000,
     tempid: String(values.TEMPLATE_ID),
-    videowall_id: String(values.VIDEOWALL_ID || ''),
     serialkey: String(values.SERIAL_KEY),
     ctrltype,
     settings: sections,
