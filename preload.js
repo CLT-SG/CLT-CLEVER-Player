@@ -146,7 +146,12 @@ contextBridge.exposeInMainWorld('cleverPlayer', {
   installUpdate: () => send('updater-install'),
   onUpdateStatus: (listener) => on('updater-status', (_event, payload) => listener(payload)),
   loadConfigure: () => send('window-load-url', pathToFileURL(path.join(appPath, 'src', 'configure.html')).toString()),
-  reload: () => send('app-reload')
+  reload: () => send('app-reload'),
+  /**
+   * Open a trusted OS file dialog for local media playback.
+   * Selected files are never uploaded to CLEVER-Service by this call.
+   */
+  openMediaFile: (options) => invoke('media-open-file', options || {})
 })
 contextBridge.exposeInMainWorld('log', {
   info: (message) => send('app-savelog', ['info', message]),

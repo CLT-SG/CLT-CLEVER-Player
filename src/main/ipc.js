@@ -313,6 +313,72 @@ function registerIpcHandlers({ getWindows, reloadPlayer }) {
     return getConfig() || {}
   })
 
+  /**
+   * Trusted local media picker for Video Wall / Console.
+   * Returns metadata + file:// URL only for explicitly selected files.
+   * Does not expose arbitrary filesystem browsing APIs to the renderer.
+   */
+  ipcMain.handle('media-open-file', async (event, options = {}) => {
+    if (!validateSender(event, 'media-open-file')) {
+      return { ok: false, error: 'unauthorized' }
+    }
+    const { dialog } = require('electron')
+    const fs = require('fs')
+    const path = require('path')
+    const { pathToFileURL } = require('url')
+    const { BrowserWindow } = require('electron')
+
+    const allowedExt = new Set([
+      'jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp',
+      'mp4', 'webm', 'ogv', 'ogg', 'm4v', 'mov',
+      'pdf'
+    ])
+
+    const parent = BrowserWindow.fromWebContents(event.sender)
+    const result = await dialog.showOpenDialog(parent || undefined, {
+      title: 'Select local media file',
+      properties: ['openFile'],
+      filters: [
+        { name: 'Media', extensions: Array.from(allowedExt) },
+        { name: 'All Files', extensions: ['*'] }
+      ]
+    })
+
+    if (result.canceled || !result.filePaths || !result.filePaths.length) {
+      return { ok: false, cancelled: true, files: [] }
+    }
+
+    const files = []
+    for (const filePath of result.filePaths) {
+      const resolved = path.resolve(filePath)
+      const ext = path.extname(resolved).replace(/^\./, '').toLowerCase()
+      if (!allowedExt.has(ext)) {
+        continue
+      }
+      let stat
+      try {
+        stat = fs.statSync(resolved)
+      } catch {
+        continue
+      }
+      if (!stat.isFile()) {
+        continue
+      }
+      files.push({
+        name: path.basename(resolved),
+        size: stat.size,
+        mime: '',
+        extension: ext,
+        // Device-local URL for this player only — never persist as a server reference.
+        url: pathToFileURL(resolved).toString(),
+        // Absolute path intentionally omitted from renderer-facing payload.
+        path: resolved
+      })
+    }
+
+    return { ok: true, files }
+  })
+
   ipcMain.on('app-get-config', (event) => {
     event.returnValue = getConfig() || {}
   })
