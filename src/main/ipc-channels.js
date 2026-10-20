@@ -26,7 +26,8 @@ const INVOKE_CHANNELS = Object.freeze([
   'app-get-mac',
   'app-qrcode',
   'app-get-config',
-  'updater-status'
+  'updater-status',
+  'media-open-file'
 ])
 
 const RECEIVE_CHANNELS = Object.freeze([

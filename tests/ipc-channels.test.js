@@ -16,4 +16,8 @@ describe('ipc channels', () => {
     assert.equal(isAllowed(INVOKE_CHANNELS, 'shell-open'), false)
     assert.equal(isAllowed(SEND_CHANNELS, null), false)
   })
+
+  test('allows media-open-file invoke for local playback dialog', () => {
+    assert.equal(isAllowed(INVOKE_CHANNELS, 'media-open-file'), true)
+  })
 })
