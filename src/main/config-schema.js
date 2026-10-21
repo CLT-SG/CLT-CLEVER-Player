@@ -17,7 +17,7 @@ const SCHEMA = [
 
   { section: 'SERVER', key: 'HOST', type: 'host', default: '127.0.0.1', comment: 'CLEVER server IP or hostname (no http://)' },
   { section: 'SERVER', key: 'CONTROLLER_PORT', type: 'port', default: 80, comment: 'CLEVER controller port' },
-  { section: 'SERVER', key: 'ONLYOFFICE_HOST', type: 'string', default: '', comment: 'Optional ONLYOFFICE Docs hostname when not proxied via CLEVER HOST (leave empty if using /onlyoffice on the controller)' },
+  { section: 'SERVER', key: 'ONLYOFFICE_HOST', type: 'string', default: '', comment: 'Optional Office Tools document-engine hostname when not proxied via CLEVER HOST (leave empty if using /onlyoffice on the controller)' },
   { section: 'SERVER', key: 'WEB_PORT', type: 'port', default: 9100, comment: 'CLEVER web hosting port' },
   { section: 'SERVER', key: 'MEDIA_PORT', type: 'port', default: 9200, comment: 'Media server port' },
   { section: 'SERVER', key: 'SCREEN_PORT', type: 'port', default: 9300, comment: 'Screen cast web port' },
