@@ -199,16 +199,25 @@ function createApp() {
 
   api.get('/api/deviceinfo', async (req, res) => {
     const { log, errorLog } = getLoggers()
-    const settings = getSettings()
-    if (settings.CPU_MONITORING === false) {
-      return res.status(403).end('CPU monitoring disabled')
-    }
     try {
-      const data = await si.cpu()
-      log.info('CPU Info requested')
-      res.json(data)
+      const { buildDeviceInfo } = require('./src/main/device-info')
+      const { getStoredDeviceToken } = require('./src/main/device-id')
+      const info = buildDeviceInfo({
+        registered: Boolean(getStoredDeviceToken())
+      })
+      // Optional CPU block when monitoring enabled
+      const settings = getSettings()
+      if (settings.CPU_MONITORING !== false) {
+        try {
+          info.cpu = await si.cpu()
+        } catch {
+          // non-fatal
+        }
+      }
+      log.info('Device info requested')
+      res.json(info)
     } catch (error) {
-      errorLog.warn('CPU Info Error:', error)
+      errorLog.warn('Device Info Error:', error)
       res.status(500).end('Internal Server Error')
     }
   })
@@ -353,7 +362,25 @@ function createApp() {
   })
 
   api.get('/api/health', (req, res) => {
-    res.json({ ok: true, port })
+    let deviceId = null
+    let version = null
+    let hostname = null
+    try {
+      const { getOrCreateDeviceId } = require('./src/main/device-id')
+      deviceId = getOrCreateDeviceId()
+      hostname = require('os').hostname()
+      version = require('./package.json').version
+    } catch {
+      // ignore
+    }
+    res.json({
+      ok: true,
+      player: true,
+      port,
+      deviceId,
+      hostname,
+      version
+    })
   })
 
   return api

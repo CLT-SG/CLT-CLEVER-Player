@@ -182,6 +182,25 @@ function createWindows() {
   } catch (error) {
     getLoggers().errorLog.error('Failed to start local API server', error)
   }
+
+  try {
+    const registration = require('./src/main/registration')
+    registration.setApplyConfigHandler(async (desired) => {
+      registration.applyDesiredConfigLocally(desired)
+      applyRuntimeSettings(configService.getSnapshot())
+      if (mainWin && !mainWin.isDestroyed() && screen) {
+        const { applyWindowMode, isVideoWallCtrl } = require('./src/main/window-bounds')
+        const settings = configService.getValues()
+        if (!isVideoWallCtrl(settings)) {
+          applyWindowMode(mainWin, settings, screen.getPrimaryDisplay())
+        }
+      }
+    })
+    registration.announce().catch(() => {})
+    registration.startHeartbeatLoop()
+  } catch (error) {
+    getLoggers().errorLog.warn('Player registration loop not started', error)
+  }
 }
 
 function registerShortcuts() {
@@ -316,6 +335,11 @@ app.on('before-quit', () => {
   const { log } = getLoggers()
   log.info('Application closed')
   globalShortcut.unregisterAll()
+  try {
+    require('./src/main/registration').stopHeartbeatLoop()
+  } catch {
+    // ignore
+  }
 })
 
 app.on('window-all-closed', () => {
