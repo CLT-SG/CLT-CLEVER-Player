@@ -54,7 +54,7 @@ function isAllowedMainNavigation(urlValue, config) {
 
   const allowedHosts = new Set()
   if (config) {
-    for (const value of [config.hostserver, config.controller, config.cleverweb, config.mediaserver, config.screenserver]) {
+    for (const value of [config.hostserver, config.controller, config.cleverweb, config.mediaserver, config.screenserver, config.onlyoffice]) {
       if (!value) {
         continue
       }
