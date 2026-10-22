@@ -33,6 +33,20 @@ When CLEVER-Service bumps `config_revision` with `desiredConfig.deviceRole`:
 4. Player acknowledges with `configAppliedRevision` + `appliedRole` only after runtime reload succeeds.
 5. Applied revision is persisted in `device-id.json` so reconnects do not re-apply stale revisions incorrectly.
 
+## Source catalogs (Video Wall / Console)
+
+Assignable source lists for the `/templates` drawer and Console/Video Wall previewers are owned by **CLEVER-Service** (`POST /api/sources/assignable`) with a shared server + Vue query cache and revision polling.
+
+CLEVER-Player does **not** maintain a separate source-list cache. It loads Service preview URLs and applies incremental slot/config sync. Treat:
+
+| Data | Freshness owner |
+|------|-----------------|
+| Source names / types / groups | CLEVER-Service catalog + revision |
+| Slot layout / playlist contents | `config_revision` / slot sync pushes |
+| Live RFB / stream health | Per-slot connect + probe (not catalog cache) |
+
+Do not persist VNC tokens or session credentials in content `CACHE_*` settings — that cache is for media files only.
+
 ## Limitations
 
 - Display resolution changes are reported but not applied by the player (OS-managed).
