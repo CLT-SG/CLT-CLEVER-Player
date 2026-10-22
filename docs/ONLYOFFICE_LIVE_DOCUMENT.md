@@ -23,6 +23,19 @@ ONLYOFFICE_HOST=docs.example.com
 
 Self-signed LAN TLS for the document engine follows the existing certificate policy for private hosts.
 
+## Preview failures (“file content does not match the file extension”)
+
+Video Wall / Console preview uses the **same** CLEVER-Service document URL and DocsAPI config as `/office/editor`. A content-mismatch error is almost always a Service-side byte/download problem, not a player renderer bug.
+
+Checklist:
+
+1. Confirm the Service document download returns ZIP bytes (`PK` / `50 4b`) from inside the document-engine container (`http://nginx/api/onlyoffice/document/...`).
+2. Inspect Service `storage/logs/office-tools-*.log` for `office.document_served` / `editor.callback.reject_invalid_bytes`.
+3. Recreate blank documents created before Service bundled templates.
+4. Ensure `ONLYOFFICE_HOST` is set only when the engine is on a separate host; leave empty when using same-origin `/onlyoffice/`.
+
+A failed Office Tools slot must not reload the entire wall — Service soft_reload targets office slots only.
+
 ## Related
 
-Service-side architecture, Docker, JWT, routing, and APIs: `clever-service/docs/onlyoffice-live-document.md`.
+Service-side architecture, Docker, JWT, routing, format validation, and APIs: `clever-service/docs/onlyoffice-live-document.md`.
