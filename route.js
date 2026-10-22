@@ -199,16 +199,25 @@ function createApp() {
 
   api.get('/api/deviceinfo', async (req, res) => {
     const { log, errorLog } = getLoggers()
-    const settings = getSettings()
-    if (settings.CPU_MONITORING === false) {
-      return res.status(403).end('CPU monitoring disabled')
-    }
     try {
-      const data = await si.cpu()
-      log.info('CPU Info requested')
-      res.json(data)
+      const { buildDeviceInfo } = require('./src/main/device-info')
+      const { getStoredDeviceToken } = require('./src/main/device-id')
+      const info = buildDeviceInfo({
+        registered: Boolean(getStoredDeviceToken())
+      })
+      // Optional CPU block when monitoring enabled
+      const settings = getSettings()
+      if (settings.CPU_MONITORING !== false) {
+        try {
+          info.cpu = await si.cpu()
+        } catch {
+          // non-fatal
+        }
+      }
+      log.info('Device info requested')
+      res.json(info)
     } catch (error) {
-      errorLog.warn('CPU Info Error:', error)
+      errorLog.warn('Device Info Error:', error)
       res.status(500).end('Internal Server Error')
     }
   })
@@ -353,7 +362,54 @@ function createApp() {
   })
 
   api.get('/api/health', (req, res) => {
-    res.json({ ok: true, port })
+    let deviceId = null
+    let version = null
+    let hostname = null
+    let ctrlType = null
+    let configAppliedRevision = 0
+    try {
+      const { getOrCreateDeviceId, getAppliedConfigRevision } = require('./src/main/device-id')
+      const registration = require('./src/main/registration')
+      deviceId = getOrCreateDeviceId()
+      hostname = require('os').hostname()
+      version = require('./package.json').version
+      ctrlType = registration.currentAppliedRole()
+      configAppliedRevision = getAppliedConfigRevision()
+    } catch {
+      // ignore
+    }
+    res.json({
+      ok: true,
+      player: true,
+      port,
+      deviceId,
+      hostname,
+      version,
+      ctrlType,
+      configAppliedRevision
+    })
+  })
+
+  // CLEVER-Service NotifyPlayerConfigSyncJob → immediate config pull.
+  api.post('/api/config_sync', async (req, res) => {
+    const { playerLog, errorLog } = getLoggers()
+    try {
+      const registration = require('./src/main/registration')
+      playerLog.info('Config sync requested by CLEVER-Service', {
+        revision: req.body && req.body.configRevision,
+        deviceRole: req.body && req.body.deviceRole
+      })
+      const result = await registration.pullAndApplyConfig()
+      return res.status(200).json({
+        ok: true,
+        appliedRole: registration.currentAppliedRole(),
+        configAppliedRevision: registration.getLastAppliedRevision(),
+        configRevision: result && result.configRevision
+      })
+    } catch (error) {
+      errorLog.warn('Config sync failed', error && error.message)
+      return res.status(500).json({ ok: false, message: 'Config sync failed' })
+    }
   })
 
   return api
