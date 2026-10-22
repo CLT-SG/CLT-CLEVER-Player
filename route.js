@@ -365,11 +365,16 @@ function createApp() {
     let deviceId = null
     let version = null
     let hostname = null
+    let ctrlType = null
+    let configAppliedRevision = 0
     try {
-      const { getOrCreateDeviceId } = require('./src/main/device-id')
+      const { getOrCreateDeviceId, getAppliedConfigRevision } = require('./src/main/device-id')
+      const registration = require('./src/main/registration')
       deviceId = getOrCreateDeviceId()
       hostname = require('os').hostname()
       version = require('./package.json').version
+      ctrlType = registration.currentAppliedRole()
+      configAppliedRevision = getAppliedConfigRevision()
     } catch {
       // ignore
     }
@@ -379,8 +384,32 @@ function createApp() {
       port,
       deviceId,
       hostname,
-      version
+      version,
+      ctrlType,
+      configAppliedRevision
     })
+  })
+
+  // CLEVER-Service NotifyPlayerConfigSyncJob → immediate config pull.
+  api.post('/api/config_sync', async (req, res) => {
+    const { playerLog, errorLog } = getLoggers()
+    try {
+      const registration = require('./src/main/registration')
+      playerLog.info('Config sync requested by CLEVER-Service', {
+        revision: req.body && req.body.configRevision,
+        deviceRole: req.body && req.body.deviceRole
+      })
+      const result = await registration.pullAndApplyConfig()
+      return res.status(200).json({
+        ok: true,
+        appliedRole: registration.currentAppliedRole(),
+        configAppliedRevision: registration.getLastAppliedRevision(),
+        configRevision: result && result.configRevision
+      })
+    } catch (error) {
+      errorLog.warn('Config sync failed', error && error.message)
+      return res.status(500).json({ ok: false, message: 'Config sync failed' })
+    }
   })
 
   return api

@@ -51,25 +51,52 @@ function getStoredDeviceToken() {
   }
 }
 
-function storeDeviceToken(token) {
+function readDeviceFile() {
   const file = deviceIdPath()
-  let data = { deviceId: getOrCreateDeviceId() }
   try {
     if (fs.existsSync(file)) {
-      data = Object.assign(data, JSON.parse(fs.readFileSync(file, 'utf8')))
+      return JSON.parse(fs.readFileSync(file, 'utf8')) || {}
     }
   } catch {
     // ignore
   }
-  data.deviceToken = token ? String(token) : null
-  data.tokenUpdatedAt = new Date().toISOString()
+  return {}
+}
+
+function writeDeviceFile(patch) {
+  const file = deviceIdPath()
+  const data = Object.assign({ deviceId: getOrCreateDeviceId() }, readDeviceFile(), patch || {})
   fs.mkdirSync(path.dirname(file), { recursive: true })
   fs.writeFileSync(file, JSON.stringify(data, null, 2))
+  return data
+}
+
+function storeDeviceToken(token) {
+  writeDeviceFile({
+    deviceToken: token ? String(token) : null,
+    tokenUpdatedAt: new Date().toISOString()
+  })
+}
+
+function getAppliedConfigRevision() {
+  const raw = readDeviceFile()
+  const value = Number(raw.configAppliedRevision)
+  return Number.isFinite(value) && value >= 0 ? value : 0
+}
+
+function storeAppliedConfigRevision(revision) {
+  const value = Number(revision)
+  writeDeviceFile({
+    configAppliedRevision: Number.isFinite(value) && value >= 0 ? value : 0,
+    configAppliedAt: new Date().toISOString()
+  })
 }
 
 module.exports = {
   getOrCreateDeviceId,
   getStoredDeviceToken,
   storeDeviceToken,
+  getAppliedConfigRevision,
+  storeAppliedConfigRevision,
   deviceIdPath
 }

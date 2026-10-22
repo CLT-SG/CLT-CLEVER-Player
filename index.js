@@ -185,15 +185,51 @@ function createWindows() {
 
   try {
     const registration = require('./src/main/registration')
-    registration.setApplyConfigHandler(async (desired) => {
+    registration.setApplyConfigHandler(async (desired, revision, meta) => {
+      const { playerLog } = getLoggers()
+      const previousRole = (meta && meta.previousRole) || registration.currentAppliedRole()
       registration.applyDesiredConfigLocally(desired)
       applyRuntimeSettings(configService.getSnapshot())
-      if (mainWin && !mainWin.isDestroyed() && screen) {
+
+      const settings = configService.getValues()
+      const nextRole = registration.currentAppliedRole()
+      const roleChanged = previousRole !== nextRole
+
+      playerLog.info('Applying server configuration', {
+        revision,
+        previousRole,
+        nextRole,
+        roleChanged
+      })
+
+      if (roleChanged) {
+        // Tear down Console chrome when entering Video Wall so interactive
+        // surfaces cannot linger after a Console → Video Wall transition.
+        if (nextRole === 'videowall' && serverWin && !serverWin.isDestroyed()) {
+          try {
+            serverWin.hide()
+            await serverWin.loadURL('about:blank')
+          } catch {
+            // ignore
+          }
+        }
+        // Reload preview/login URLs for the new CTRL_TYPE without restarting Electron.
+        await reloadPlayer()
+        if (nextRole === 'console' && serverWin && !serverWin.isDestroyed()) {
+          serverWin.show()
+        }
+      } else if (mainWin && !mainWin.isDestroyed() && screen) {
         const { applyWindowMode, isVideoWallCtrl } = require('./src/main/window-bounds')
-        const settings = configService.getValues()
         if (!isVideoWallCtrl(settings)) {
           applyWindowMode(mainWin, settings, screen.getPrimaryDisplay())
         }
+      }
+
+      // Confirm runtime role matches desired before the heartbeat acknowledges.
+      const applied = registration.currentAppliedRole()
+      const desiredRole = (meta && meta.desiredRole) || (desired && desired.deviceRole)
+      if (desiredRole && applied !== desiredRole) {
+        throw new Error(`Runtime role is ${applied} after apply; desired ${desiredRole}`)
       }
     })
     registration.announce().catch(() => {})

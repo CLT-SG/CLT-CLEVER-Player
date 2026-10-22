@@ -23,6 +23,16 @@
 
 Server assigns `CTRL_TYPE` (`videowall` | `console`). The player never self-promotes.
 
+### Runtime role changes
+
+When CLEVER-Service bumps `config_revision` with `desiredConfig.deviceRole`:
+
+1. Heartbeat (or `POST :9000/api/config_sync`) receives the pending config.
+2. Player writes `CTRL_TYPE`, reloads windows via `CreateConfig.checkSerial` (no full Electron restart).
+3. Console → Video Wall hides/clears the Console window so interactive UI cannot linger.
+4. Player acknowledges with `configAppliedRevision` + `appliedRole` only after runtime reload succeeds.
+5. Applied revision is persisted in `device-id.json` so reconnects do not re-apply stale revisions incorrectly.
+
 ## Limitations
 
 - Display resolution changes are reported but not applied by the player (OS-managed).

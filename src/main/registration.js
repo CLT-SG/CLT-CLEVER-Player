@@ -4,13 +4,29 @@ const http = require('http')
 const https = require('https')
 const { URL } = require('url')
 const configService = require('./config-service')
-const { getOrCreateDeviceId, getStoredDeviceToken, storeDeviceToken } = require('./device-id')
+const {
+  getOrCreateDeviceId,
+  getStoredDeviceToken,
+  storeDeviceToken,
+  getAppliedConfigRevision,
+  storeAppliedConfigRevision
+} = require('./device-id')
 const { buildDeviceInfo } = require('./device-info')
 const { getLoggers } = require('./logger')
 
 let heartbeatTimer = null
 let lastAppliedRevision = 0
 let applyConfigHandler = null
+let applyingRevision = null
+let pendingConfigError = null
+
+function loadPersistedRevision() {
+  try {
+    lastAppliedRevision = Number(getAppliedConfigRevision()) || 0
+  } catch {
+    lastAppliedRevision = 0
+  }
+}
 
 function controllerBase() {
   const values = configService.getValues()
@@ -76,6 +92,12 @@ function setApplyConfigHandler(fn) {
   applyConfigHandler = typeof fn === 'function' ? fn : null
 }
 
+function currentAppliedRole() {
+  const values = configService.getValues()
+  const role = String(values.CTRL_TYPE || values.ctrltype || '').toLowerCase()
+  return role === 'console' ? 'console' : 'videowall'
+}
+
 async function tryClaimPendingToken(deviceId) {
   try {
     const result = await postJson('/api/player/claim', { deviceId })
@@ -91,13 +113,16 @@ async function tryClaimPendingToken(deviceId) {
 
 async function announce() {
   const { playerLog, errorLog } = getLoggers()
+  loadPersistedRevision()
   const info = buildDeviceInfo()
   let token = getStoredDeviceToken()
   if (!token) {
     token = await tryClaimPendingToken(info.deviceId)
   }
   const body = Object.assign({}, info, {
-    deviceToken: token || undefined
+    deviceToken: token || undefined,
+    configAppliedRevision: lastAppliedRevision,
+    appliedRole: currentAppliedRole()
   })
   try {
     const result = await postJson('/api/player/announce', body)
@@ -111,9 +136,9 @@ async function announce() {
     if (result.registrationStatus === 'registered' && !getStoredDeviceToken()) {
       await tryClaimPendingToken(info.deviceId)
     }
+    await maybeApplyDesiredConfig(result)
     return result
   } catch (err) {
-    // Already registered but missing token — try one-time claim
     if (err && err.statusCode === 422) {
       const claimed = await tryClaimPendingToken(info.deviceId)
       if (claimed) {
@@ -125,16 +150,86 @@ async function announce() {
   }
 }
 
-async function heartbeat() {
+async function maybeApplyDesiredConfig(result) {
   const { playerLog, errorLog } = getLoggers()
+  if (!result) return false
+
+  const revision = Number(result.configRevision) || 0
+  const desired = result.desiredConfig
+  if (!desired || revision <= lastAppliedRevision) {
+    return false
+  }
+  if (applyingRevision === revision) {
+    return false
+  }
+
+  applyingRevision = revision
+  pendingConfigError = null
+  try {
+    const previousRole = currentAppliedRole()
+    const desiredRole = normalizeRole(desired.deviceRole || result.deviceRole || result.desiredRole)
+
+    if (applyConfigHandler) {
+      await applyConfigHandler(desired, revision, {
+        previousRole,
+        desiredRole,
+        videowallId: result.videowallId || desired.videowallId,
+        templateId: result.templateId || desired.templateId
+      })
+    } else {
+      applyDesiredConfigLocally(desired)
+      if (desiredRole) {
+        configService.updateValues({ CTRL_TYPE: desiredRole })
+      }
+    }
+
+    // Only acknowledge after runtime application succeeds.
+    lastAppliedRevision = revision
+    storeAppliedConfigRevision(revision)
+    playerLog.info('Applied desired config revision', {
+      revision,
+      previousRole,
+      appliedRole: currentAppliedRole(),
+      desiredRole
+    })
+    return true
+  } catch (err) {
+    pendingConfigError = String(err && err.message ? err.message : err)
+    errorLog.warn('Failed applying desired config', pendingConfigError)
+    return false
+  } finally {
+    applyingRevision = null
+  }
+}
+
+function normalizeRole(role) {
+  const value = String(role || '').toLowerCase()
+  return value === 'console' ? 'console' : (value === 'videowall' ? 'videowall' : null)
+}
+
+async function heartbeat() {
+  const { errorLog } = getLoggers()
+  loadPersistedRevision()
   const info = buildDeviceInfo()
   let token = getStoredDeviceToken()
   if (!token) {
     token = await tryClaimPendingToken(info.deviceId)
   }
+
+  const reportedConfig = Object.assign({}, info.reportedConfig || {}, {
+    appliedRole: currentAppliedRole(),
+    deviceRole: currentAppliedRole(),
+    ctrlType: currentAppliedRole(),
+    configAppliedRevision: lastAppliedRevision
+  })
+
   const body = Object.assign({}, info, {
     deviceToken: token || undefined,
-    configAppliedRevision: lastAppliedRevision
+    configAppliedRevision: lastAppliedRevision,
+    appliedRole: currentAppliedRole(),
+    reportedRole: currentAppliedRole(),
+    reportedConfig,
+    configError: pendingConfigError || undefined
   })
 
   try {
@@ -143,11 +238,8 @@ async function heartbeat() {
       storeDeviceToken(result.deviceToken)
     }
 
-    // Server-authoritative role / ids
+    // IDs may update without a full role transition.
     const updates = {}
-    if (result.deviceRole && ['videowall', 'console'].includes(result.deviceRole)) {
-      updates.CTRL_TYPE = result.deviceRole
-    }
     if (result.videowallId != null && result.videowallId !== '') {
       updates.VIDEOWALL_ID = String(result.videowallId)
     }
@@ -158,20 +250,13 @@ async function heartbeat() {
       configService.updateValues(updates)
     }
 
-    if (result.desiredConfig && Number(result.configRevision) > lastAppliedRevision) {
-      try {
-        if (applyConfigHandler) {
-          await applyConfigHandler(result.desiredConfig, result.configRevision)
-        } else {
-          applyDesiredConfigLocally(result.desiredConfig)
-        }
-        lastAppliedRevision = Number(result.configRevision) || lastAppliedRevision
-        playerLog.info('Applied desired config revision', lastAppliedRevision)
-      } catch (err) {
-        errorLog.warn('Failed applying desired config', err && err.message)
-        // Report on next heartbeat via configError by rethrowing path — store for next body
-        body.configError = String(err && err.message)
-      }
+    // Role and other desired settings apply only through the revision path.
+    // Do not silently write CTRL_TYPE from deviceRole without runtime reload.
+    const applied = await maybeApplyDesiredConfig(result)
+    if (applied) {
+      pendingConfigError = null
+      // One-shot acknowledgment heartbeat with the new applied role (no recurse loop).
+      return acknowledgeAppliedConfig()
     }
 
     return result
@@ -181,9 +266,42 @@ async function heartbeat() {
   }
 }
 
+async function acknowledgeAppliedConfig() {
+  const info = buildDeviceInfo()
+  const token = getStoredDeviceToken()
+  const body = Object.assign({}, info, {
+    deviceToken: token || undefined,
+    configAppliedRevision: lastAppliedRevision,
+    appliedRole: currentAppliedRole(),
+    reportedRole: currentAppliedRole(),
+    reportedConfig: Object.assign({}, info.reportedConfig || {}, {
+      appliedRole: currentAppliedRole(),
+      deviceRole: currentAppliedRole(),
+      ctrlType: currentAppliedRole(),
+      configAppliedRevision: lastAppliedRevision
+    })
+  })
+  return postJson('/api/player/heartbeat', body)
+}
+
+/**
+ * Immediate pull triggered by CLEVER-Service NotifyPlayerConfigSyncJob.
+ */
+async function pullAndApplyConfig() {
+  return heartbeat()
+}
+
 function applyDesiredConfigLocally(config) {
   if (!config || typeof config !== 'object') return
   const updates = {}
+  const role = normalizeRole(config.deviceRole || config.ctrlType)
+  if (role) updates.CTRL_TYPE = role
+  if (config.videowallId != null && config.videowallId !== '') {
+    updates.VIDEOWALL_ID = String(config.videowallId)
+  }
+  if (config.templateId != null && config.templateId !== '') {
+    updates.TEMPLATE_ID = String(config.templateId)
+  }
   if (typeof config.fullscreen === 'boolean') updates.FULLSCREEN = config.fullscreen
   if (typeof config.kioskMode === 'boolean') updates.KIOSK_MODE = config.kioskMode
   if (typeof config.alwaysOnTop === 'boolean') updates.ALWAYS_ON_TOP = config.alwaysOnTop
@@ -196,6 +314,7 @@ function applyDesiredConfigLocally(config) {
 
 function startHeartbeatLoop() {
   stopHeartbeatLoop()
+  loadPersistedRevision()
   const values = configService.getValues()
   const intervalSec = Math.max(10, Number(values.HEARTBEAT_INTERVAL) || 30)
   const tick = () => {
@@ -213,13 +332,21 @@ function stopHeartbeatLoop() {
   }
 }
 
+function getLastAppliedRevision() {
+  loadPersistedRevision()
+  return lastAppliedRevision
+}
+
 module.exports = {
   announce,
   heartbeat,
+  pullAndApplyConfig,
   startHeartbeatLoop,
   stopHeartbeatLoop,
   setApplyConfigHandler,
   applyDesiredConfigLocally,
   getOrCreateDeviceId,
+  currentAppliedRole,
+  getLastAppliedRevision,
   controllerBase
 }
