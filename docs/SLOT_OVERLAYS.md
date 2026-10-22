@@ -7,17 +7,21 @@ renderer.
 ## Settings ownership
 
 - **Video Wall** — template columns on CLEVER-Service (`show_content_name`,
-  `show_mute_icon`, `show_screencast_settings`). Edited under `/templates`.
-  Defaults: content name off; mute icon and Screencast settings on
-  (backward compatible with always-visible chrome).
+  `show_mute_icon`, `show_screencast_settings`). Edited under `/templates` via
+  the **Slot Overlay** button beside Mute BG Full. Defaults: content name off;
+  mute icon and noVNC side panel on (backward compatible).
 - **Console** — OSD “Others” toggles persisted as `consoleOverlaySettings` in
   the preview `localStorage`. Console changes never overwrite template rows.
 
 ## Soft updates
 
 - Mute icon / content label: Vue `v-if` against the resolved prefs (no remount).
-- noVNC Settings panel: initial `show_settings` query param; runtime toggles
-  call `window.cleverSetShowSettings` via `webview.executeJavaScript`.
+- Template overlay changes push `overlay_update` to players immediately
+  (`:9000/api/overlay_update`, falls back to `/api/sync`). Polls also carry
+  overlay fields on every slot-sync response.
+- noVNC **left control bar**: initial `show_settings` query param; runtime
+  toggles call `window.cleverSetShowSettings` via `webview.executeJavaScript`.
+  The floating gear FAB is not controlled by this setting.
 - MediaMTX / HTML5 video: slot URLs send `controls=false` so native playback
   controls do not stay visible after connect/reconnect.
 

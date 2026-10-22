@@ -6,14 +6,16 @@ const ACTIONS = Object.freeze({
   SLOT_UPDATE: 'slot_update',
   PLAYLIST_UPDATE: 'playlist_update',
   CONTENT_UPDATE: 'content_update',
-  MUTE_UPDATE: 'mute_update'
+  MUTE_UPDATE: 'mute_update',
+  OVERLAY_UPDATE: 'overlay_update'
 })
 
 const INCREMENTAL_ACTIONS = Object.freeze([
   ACTIONS.SLOT_UPDATE,
   ACTIONS.PLAYLIST_UPDATE,
   ACTIONS.CONTENT_UPDATE,
-  ACTIONS.MUTE_UPDATE
+  ACTIONS.MUTE_UPDATE,
+  ACTIONS.OVERLAY_UPDATE
 ])
 
 function slotLetter(index) {
@@ -75,6 +77,14 @@ function normalizePayload(body) {
     })
   })
 
+  const overlaySource = (source.overlay && typeof source.overlay === 'object')
+    ? source.overlay
+    : source
+  const hasOverlay = Object.prototype.hasOwnProperty.call(overlaySource, 'show_content_name')
+    || Object.prototype.hasOwnProperty.call(overlaySource, 'show_mute_icon')
+    || Object.prototype.hasOwnProperty.call(overlaySource, 'show_screencast_settings')
+    || Object.prototype.hasOwnProperty.call(source, 'overlay')
+
   return {
     action,
     template_id: source.template_id || source.templateId || source.id || null,
@@ -82,6 +92,19 @@ function normalizePayload(body) {
     layout_changed: Boolean(source.layout_changed),
     content_id: source.content_id != null ? source.content_id : null,
     mute: Object.prototype.hasOwnProperty.call(source, 'mute') ? !!source.mute : undefined,
+    overlay: hasOverlay ? {
+      show_content_name: !!overlaySource.show_content_name,
+      show_mute_icon: overlaySource.show_mute_icon !== false && overlaySource.show_mute_icon !== 0,
+      show_screencast_settings: overlaySource.show_screencast_settings !== false
+        && overlaySource.show_screencast_settings !== 0
+    } : null,
+    show_content_name: hasOverlay ? !!overlaySource.show_content_name : undefined,
+    show_mute_icon: hasOverlay
+      ? (overlaySource.show_mute_icon !== false && overlaySource.show_mute_icon !== 0)
+      : undefined,
+    show_screencast_settings: hasOverlay
+      ? (overlaySource.show_screencast_settings !== false && overlaySource.show_screencast_settings !== 0)
+      : undefined,
     slots,
     reason: source.reason || null,
     templateData: source.templateData,
@@ -158,8 +181,11 @@ function describeUpdate(payload) {
 }
 
 function shouldFallbackToReload(result, payload) {
-  // Mute-only updates must never remount the layout / CLEVER-node webviews.
-  if (payload && payload.action === ACTIONS.MUTE_UPDATE) {
+  // Mute / overlay chrome updates must never remount the layout / CLEVER-node webviews.
+  if (
+    payload
+    && (payload.action === ACTIONS.MUTE_UPDATE || payload.action === ACTIONS.OVERLAY_UPDATE)
+  ) {
     return false
   }
   if (!result) {

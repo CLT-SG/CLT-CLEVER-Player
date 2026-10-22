@@ -127,6 +127,28 @@ describe('slot sync runtime patch engine', () => {
     assert.equal(shouldFallbackToReload({ applied: false }, payload), false)
   })
 
+  test('overlay_update is incremental and carries template chrome prefs', () => {
+    const payload = normalizePayload({
+      action: 'overlay_update',
+      template_id: 9,
+      show_content_name: true,
+      show_mute_icon: false,
+      show_screencast_settings: true,
+      overlay: {
+        show_content_name: true,
+        show_mute_icon: false,
+        show_screencast_settings: true
+      }
+    })
+    assert.equal(payload.action, ACTIONS.OVERLAY_UPDATE)
+    assert.equal(payload.show_content_name, true)
+    assert.equal(payload.show_mute_icon, false)
+    assert.equal(payload.show_screencast_settings, true)
+    assert.equal(isFullReload(payload), false)
+    assert.equal(isIncremental(payload), true)
+    assert.equal(shouldFallbackToReload({ applied: false }, payload), false)
+  })
+
   test('falls back to reload_layout when the renderer cannot apply a patch', () => {
     assert.equal(shouldFallbackToReload(null), true)
     assert.equal(shouldFallbackToReload({ applied: false }), true)
