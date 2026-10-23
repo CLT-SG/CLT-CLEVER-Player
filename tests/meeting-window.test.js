@@ -5,6 +5,7 @@ const assert = require('node:assert/strict')
 const {
   chromeLikeUserAgent,
   buildJoinAssistScript,
+  buildLeaveMeetingScript,
   normalizeBounds,
   isHttpUrl
 } = require('../src/main/meeting-window')
@@ -37,6 +38,14 @@ describe('meeting-window helpers', () => {
     assert.match(script, /wall@example\.com/)
     assert.match(script, /login-secret/)
     assert.match(script, /sign in/)
+  })
+
+  test('leave script targets Leave/Hang up and avoids end-for-all', () => {
+    const script = buildLeaveMeetingScript()
+    assert.match(script, /leave call/)
+    assert.match(script, /leave meeting/)
+    assert.match(script, /hang up/)
+    assert.match(script, /end \(the \)\?\(meeting\|call\) for \(all\|everyone\)/)
   })
 
   test('normalizes bounds with minimum size', () => {

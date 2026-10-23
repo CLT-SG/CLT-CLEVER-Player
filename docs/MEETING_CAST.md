@@ -32,6 +32,7 @@ Meeting Cast on CLEVER-Player uses a dedicated top-level `BrowserWindow` positio
   - Guest → fill configured guest display name + Ask to join
   - Signed-in → autofill platform login identifier/password (best-effort; MFA/SSO may still need a person)
 - Session partition is per platform + identity mode so guest and signed-in cookies stay separate
+- On slot teardown or CLEVER-Player quit, meeting windows **Leave / Hang up** (best-effort) before destroy, then navigate to `about:blank`. This avoids leaving a ghost participant on the host roster. Never clicks “End meeting for all”.
 
 Embedded `<webview>` is only a Service browser-preview fallback when the player API is unavailable.
 

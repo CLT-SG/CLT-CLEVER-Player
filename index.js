@@ -367,7 +367,13 @@ app.whenReady().then(async () => {
   })
 })
 
-app.on('before-quit', () => {
+let meetingQuitCleanupDone = false
+app.on('before-quit', (event) => {
+  if (meetingQuitCleanupDone) return
+  // Leave active Meeting Cast calls before the process exits; otherwise hosts
+  // keep seeing this display until WebRTC times out.
+  event.preventDefault()
+  meetingQuitCleanupDone = true
   const { log } = getLoggers()
   log.info('Application closed')
   globalShortcut.unregisterAll()
@@ -376,11 +382,12 @@ app.on('before-quit', () => {
   } catch {
     // ignore
   }
-  try {
-    require('./src/main/meeting-window').closeAllMeetingWindows()
-  } catch {
-    // ignore
-  }
+  Promise.resolve()
+    .then(() => require('./src/main/meeting-window').closeAllMeetingWindows())
+    .catch(() => {})
+    .finally(() => {
+      app.quit()
+    })
 })
 
 app.on('window-all-closed', () => {

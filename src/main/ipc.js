@@ -426,11 +426,14 @@ function registerIpcHandlers({ getWindows, reloadPlayer }) {
     })
   })
 
-  ipcMain.handle('meeting-close-window', (event, payload = {}) => {
+  ipcMain.handle('meeting-close-window', async (event, payload = {}) => {
     if (!validateSender(event, 'meeting-close-window')) {
       return { ok: false, error: 'unauthorized' }
     }
-    return closeMeetingWindow(payload.slotId)
+    // Always attempt Leave / Hang up before destroy so the host roster updates.
+    return closeMeetingWindow(payload.slotId, {
+      skipLeave: payload.skipLeave === true
+    })
   })
 
   ipcMain.handle('meeting-update-bounds', (event, payload = {}) => {

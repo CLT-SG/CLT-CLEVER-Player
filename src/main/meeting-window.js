@@ -111,11 +111,111 @@ function slotKey(slotId) {
   return String(slotId == null ? '0' : slotId)
 }
 
-function closeMeetingWindow(slotId) {
+/**
+ * Best-effort Leave / Hang up — never "End meeting for all".
+ * Abrupt BrowserWindow.destroy() often leaves a ghost participant until ICE times out.
+ */
+function buildLeaveMeetingScript() {
+  return `(function(){
+    try {
+      var forbidden = /end (the )?(meeting|call) for (all|everyone)|end for (all|everyone)|end meeting for everyone|end call for everyone|remove everyone/;
+      var exact = [
+        'leave call',
+        'leave meeting',
+        'just leave the call',
+        'leave the call',
+        'hang up',
+        'hangup',
+        'disconnect',
+        'leave'
+      ];
+      var nodes = Array.prototype.slice.call(document.querySelectorAll('button, [role="button"], div[role="button"]'));
+      function labelOf(n) {
+        return ((n.innerText || n.getAttribute('aria-label') || n.getAttribute('data-tooltip') || '') + '')
+          .replace(/\\s+/g, ' ').trim().toLowerCase();
+      }
+      for (var pass = 0; pass < 2; pass++) {
+        for (var i = 0; i < nodes.length; i++) {
+          var n = nodes[i];
+          if (n.disabled) continue;
+          var text = labelOf(n);
+          if (!text || forbidden.test(text)) continue;
+          for (var j = 0; j < exact.length; j++) {
+            var want = exact[j];
+            var ok = pass === 0
+              ? (text === want)
+              : (text.indexOf(want) !== -1 && text.length <= 48);
+            if (ok) { n.click(); return 'left:' + want; }
+          }
+        }
+      }
+      // Second dialog / confirm step used by Meet and others.
+      for (var k = 0; k < nodes.length; k++) {
+        var m = nodes[k];
+        if (m.disabled) continue;
+        var t = labelOf(m);
+        if (t === 'leave' || t === 'just leave the call' || t === 'leave meeting') {
+          m.click();
+          return 'left:confirm';
+        }
+      }
+      return null;
+    } catch (e) { return null; }
+  })()`
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+async function leaveMeetingWindow(win) {
+  if (!win || win.isDestroyed()) return { left: false }
+  let result = null
+  try {
+    result = await win.webContents.executeJavaScript(buildLeaveMeetingScript(), true)
+  } catch {
+    // page may be cross-origin mid-navigation
+  }
+  // Allow signaling / WebRTC teardown after Leave click.
+  await sleep(result ? 900 : 200)
+  try {
+    if (!win.isDestroyed()) {
+      // Confirm dialog may appear after first Leave click (Meet).
+      await win.webContents.executeJavaScript(buildLeaveMeetingScript(), true).catch(() => {})
+      await sleep(400)
+    }
+  } catch {
+    // ignore
+  }
+  try {
+    if (!win.isDestroyed()) {
+      // Drop media / peer connections hard if Leave UI was missing.
+      await win.loadURL('about:blank')
+      await sleep(150)
+    }
+  } catch {
+    // ignore
+  }
+  return { left: !!result, result }
+}
+
+/**
+ * Leave the remote meeting (best-effort), then destroy the BrowserWindow.
+ * @param {string|number} slotId
+ * @param {{ skipLeave?: boolean }} [options]
+ */
+async function closeMeetingWindow(slotId, options = {}) {
   const key = slotKey(slotId)
   const win = windows.get(key)
   if (!win) return { ok: true, closed: false }
   windows.delete(key)
+  if (!options.skipLeave) {
+    try {
+      await leaveMeetingWindow(win)
+    } catch {
+      // ignore
+    }
+  }
   try {
     if (!win.isDestroyed()) win.destroy()
   } catch {
@@ -124,10 +224,10 @@ function closeMeetingWindow(slotId) {
   return { ok: true, closed: true }
 }
 
-function closeAllMeetingWindows() {
-  for (const key of Array.from(windows.keys())) {
-    closeMeetingWindow(key)
-  }
+async function closeAllMeetingWindows(options = {}) {
+  const keys = Array.from(windows.keys())
+  await Promise.all(keys.map((key) => closeMeetingWindow(key, options)))
+  return { ok: true, closed: keys.length }
 }
 
 function setNativeInputValueScript() {
@@ -368,11 +468,13 @@ module.exports = {
   openMeetingWindow,
   closeMeetingWindow,
   closeAllMeetingWindows,
+  leaveMeetingWindow,
   updateMeetingBounds,
   chromeLikeUserAgent,
   chromeClientHintBrands,
   applyChromeIdentity,
   buildJoinAssistScript,
+  buildLeaveMeetingScript,
   normalizeBounds,
   isHttpUrl,
   windows
