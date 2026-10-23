@@ -187,12 +187,12 @@ function buildScreencastUrl(baseHost, value, extras) {
     params.push('vnc_port=' + encodeURIComponent(String(extra.vncPort)))
   }
   const hasAudio = !!(extra.hasAudio || extra.has_audio || extra.audioSystem || extra.audio_system)
-  if (extra.deviceId || extra.wsPort || extra.audioPath || hasAudio) {
+  if (registered || extra.audioPath || hasAudio) {
     params.push('audio=1')
     params.push('audio_path=' + encodeURIComponent(extra.audioPath || '/audio'))
     params.push('audio_codec=opus')
-    // CLEVER-Service Audio Stream → auto-subscribe system audio on the viewer
-    if (hasAudio) {
+    // Registered ScreencastApp + Audio Stream → auto-subscribe on /audio
+    if (hasAudio || registered) {
       params.push('audio_system=1')
     }
   }

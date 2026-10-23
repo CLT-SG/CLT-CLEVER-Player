@@ -80,7 +80,7 @@ describe('Screencast-VNC connection targets', () => {
     assert.equal(slotA, slotB)
   })
 
-  test('has_audio enables audio_system auto-subscribe on the noVNC URL', () => {
+  test('registered ScreencastApp URLs auto-subscribe system audio', () => {
     const withAudio = buildScreencastUrl('/screencast', 'CLT-27AIO:0', {
       deviceId: 'abc',
       wsPort: 8840,
@@ -90,12 +90,13 @@ describe('Screencast-VNC connection targets', () => {
     assert.match(withAudio, /audio=1/)
     assert.match(withAudio, /audio_system=1/)
 
-    const withoutAudio = buildScreencastUrl('/screencast', 'CLT-27AIO:0', {
+    // deviceId / wsPort alone is enough — Video Wall must join /audio
+    const registered = buildScreencastUrl('/screencast', 'CLT-27AIO:0', {
       deviceId: 'abc',
       wsPort: 8840,
       vncPort: 5900
     })
-    assert.match(withoutAudio, /audio=1/)
-    assert.doesNotMatch(withoutAudio, /audio_system=1/)
+    assert.match(registered, /audio=1/)
+    assert.match(registered, /audio_system=1/)
   })
 })
