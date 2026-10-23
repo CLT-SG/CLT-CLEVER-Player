@@ -4,6 +4,7 @@ const { test, describe } = require('node:test')
 const assert = require('node:assert/strict')
 const {
   chromeLikeUserAgent,
+  buildJoinAssistScript,
   normalizeBounds,
   isHttpUrl
 } = require('../src/main/meeting-window')
@@ -15,6 +16,27 @@ describe('meeting-window helpers', () => {
     assert.match(ua, /Safari\/537\.36$/)
     assert.equal(/Electron\//i.test(ua), false)
     assert.equal(/cleverplayer/i.test(ua), false)
+  })
+
+  test('guest join assist script embeds display name and Ask to join', () => {
+    const script = buildJoinAssistScript({
+      identityMode: 'guest',
+      guestDisplayName: 'Lobby A'
+    })
+    assert.match(script, /Lobby A/)
+    assert.match(script, /ask to join/)
+    assert.equal(/login-secret/.test(script), false)
+  })
+
+  test('signed-in join assist script embeds identifier autofill helpers', () => {
+    const script = buildJoinAssistScript({
+      identityMode: 'signed_in',
+      loginIdentifier: 'wall@example.com',
+      loginPassword: 'login-secret'
+    })
+    assert.match(script, /wall@example\.com/)
+    assert.match(script, /login-secret/)
+    assert.match(script, /sign in/)
   })
 
   test('normalizes bounds with minimum size', () => {

@@ -28,7 +28,10 @@ Meeting Cast on CLEVER-Player uses a dedicated top-level `BrowserWindow` positio
 - No CLEVER preload in that window (closer to Chrome)
 - Stock Google Chrome user-agent + `Sec-CH-UA` client hints (never Electron’s default UA)
 - Session / `webContents` / request headers all forced to that Chrome identity
-- Guest name fill + Ask to join assist after load (Meet)
+- Join assist from Service `meeting_player.join`:
+  - Guest → fill configured guest display name + Ask to join
+  - Signed-in → autofill platform login identifier/password (best-effort; MFA/SSO may still need a person)
+- Session partition is per platform + identity mode so guest and signed-in cookies stay separate
 
 Embedded `<webview>` is only a Service browser-preview fallback when the player API is unavailable.
 

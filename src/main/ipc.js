@@ -421,6 +421,7 @@ function registerIpcHandlers({ getWindows, reloadPlayer }) {
       bounds: payload.bounds,
       displayName: payload.displayName,
       platform: payload.platform,
+      joinAssist: payload.joinAssist,
       parent
     })
   })

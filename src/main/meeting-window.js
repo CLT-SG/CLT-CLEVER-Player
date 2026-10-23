@@ -130,11 +130,75 @@ function closeAllMeetingWindows() {
   }
 }
 
-function buildPrejoinScript(displayName) {
-  const name = JSON.stringify(String(displayName || 'CLEVER Display').slice(0, 60))
+function setNativeInputValueScript() {
+  return `function setNativeValue(input, value) {
+      var setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value');
+      if (setter && setter.set) setter.set.call(input, value); else input.value = value;
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+    }`
+}
+
+/**
+ * Best-effort guest name fill + Ask to join, or signed-in email/password autofill.
+ * MFA / SSO still require operator interaction.
+ */
+function buildJoinAssistScript(joinAssist = {}, displayNameFallback) {
+  const mode = String((joinAssist && joinAssist.identityMode) || 'guest')
+  const guestName = JSON.stringify(String(
+    (joinAssist && joinAssist.guestDisplayName) || displayNameFallback || 'CLEVER Display'
+  ).slice(0, 60))
+  const loginId = JSON.stringify(String((joinAssist && joinAssist.loginIdentifier) || '').slice(0, 191))
+  const loginPassword = JSON.stringify(String((joinAssist && joinAssist.loginPassword) || '').slice(0, 256))
+  const phone = JSON.stringify(String(
+    (joinAssist && joinAssist.loginConfig && joinAssist.loginConfig.phone) || ''
+  ).slice(0, 64))
+
+  if (mode === 'signed_in') {
+    return `(function(){
+      try {
+        ${setNativeInputValueScript()}
+        var loginId = ${loginId};
+        var password = ${loginPassword};
+        var phone = ${phone};
+        var identifier = loginId || phone;
+        if (!identifier && !password) return null;
+        var inputs = Array.prototype.slice.call(document.querySelectorAll('input'));
+        for (var i = 0; i < inputs.length; i++) {
+          var input = inputs[i];
+          if (input.disabled || input.readOnly) continue;
+          var typ = (input.getAttribute('type') || 'text').toLowerCase();
+          var al = ((input.getAttribute('aria-label') || '') + ' ' + (input.placeholder || '') + ' ' +
+            (input.getAttribute('name') || '') + ' ' + (input.getAttribute('autocomplete') || '') + ' ' +
+            (input.id || '')).toLowerCase();
+          if (identifier && (typ === 'email' || typ === 'text' || typ === 'tel' || typ === 'search' || typ === '')) {
+            if (/email|username|user name|login|account|phone|identifier/.test(al) || typ === 'email' || typ === 'tel') {
+              setNativeValue(input, identifier);
+            }
+          }
+          if (password && typ === 'password') {
+            setNativeValue(input, password);
+          }
+        }
+        var labels = ['next', 'continue', 'sign in', 'signin', 'log in', 'login', 'submit'];
+        var nodes = Array.prototype.slice.call(document.querySelectorAll('button, [role="button"], input[type="submit"]'));
+        for (var j = 0; j < nodes.length; j++) {
+          var n = nodes[j];
+          if (n.disabled) continue;
+          var text = ((n.innerText || n.value || n.getAttribute('aria-label') || '') + '').replace(/\\s+/g, ' ').trim().toLowerCase();
+          for (var k = 0; k < labels.length; k++) {
+            if (text === labels[k] || text.indexOf(labels[k]) === 0) { n.click(); return 'signed_in:' + labels[k]; }
+          }
+        }
+        return 'signed_in:filled';
+      } catch (e) { return null; }
+    })()`
+  }
+
   return `(function(){
     try {
-      var name = ${name};
+      ${setNativeInputValueScript()}
+      var name = ${guestName};
       var inputs = Array.prototype.slice.call(document.querySelectorAll('input'));
       for (var i = 0; i < inputs.length; i++) {
         var input = inputs[i];
@@ -142,10 +206,7 @@ function buildPrejoinScript(displayName) {
         if (typ !== 'text' && typ !== 'search' && typ !== '') continue;
         var al = ((input.getAttribute('aria-label') || '') + ' ' + (input.placeholder || '') + ' ' + (input.getAttribute('name') || '')).toLowerCase();
         if (al.indexOf('name') === -1) continue;
-        var setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value');
-        if (setter && setter.set) setter.set.call(input, name); else input.value = name;
-        input.dispatchEvent(new Event('input', { bubbles: true }));
-        input.dispatchEvent(new Event('change', { bubbles: true }));
+        setNativeValue(input, name);
       }
       var nodes = Array.prototype.slice.call(document.querySelectorAll('button, [role="button"]'));
       for (var j = 0; j < nodes.length; j++) {
@@ -168,6 +229,7 @@ function buildPrejoinScript(displayName) {
  * @param {{x:number,y:number,width:number,height:number}} options.bounds
  * @param {string} [options.displayName]
  * @param {string} [options.platform]
+ * @param {object} [options.joinAssist]
  * @param {import('electron').BrowserWindow} [options.parent]
  */
 function openMeetingWindow(options = {}) {
@@ -179,8 +241,14 @@ function openMeetingWindow(options = {}) {
 
   const key = slotKey(options.slotId)
   const bounds = normalizeBounds(options.bounds)
+  const joinAssist = options.joinAssist && typeof options.joinAssist === 'object'
+    ? options.joinAssist
+    : { identityMode: 'guest', guestDisplayName: options.displayName }
   const { BrowserWindow, session } = electronApi()
-  const partition = 'persist:clever-meeting-' + String(options.platform || 'generic')
+  // Persist cookies per platform + identity mode so guest/signed-in sessions stay separate.
+  const partition = 'persist:clever-meeting-' +
+    String(options.platform || 'generic') + '-' +
+    String(joinAssist.identityMode || 'guest')
   const sess = session.fromPartition(partition)
   const userAgent = applyChromeIdentity(sess)
 
@@ -260,24 +328,32 @@ function openMeetingWindow(options = {}) {
   win.webContents.setUserAgent(userAgent)
 
   win.webContents.on('did-finish-load', () => {
-    const script = buildPrejoinScript(options.displayName)
+    const script = buildJoinAssistScript(joinAssist, options.displayName)
+    const delay = (joinAssist.identityMode === 'signed_in') ? 2200 : 1600
     setTimeout(() => {
       if (win.isDestroyed()) return
       win.webContents.executeJavaScript(script, true).catch(() => {})
-    }, 1600)
+    }, delay)
   })
 
   win.loadURL(url, { userAgent }).then(() => {
     log.info('Opened meeting browser window', {
       slotId: key,
       platform: options.platform || null,
+      identityMode: joinAssist.identityMode || 'guest',
       userAgent
     })
   }).catch((err) => {
     errorLog.warn('meeting window load failed', err && err.message)
   })
 
-  return { ok: true, reused: false, mode: 'browser_window', userAgent }
+  return {
+    ok: true,
+    reused: false,
+    mode: 'browser_window',
+    userAgent,
+    identityMode: joinAssist.identityMode || 'guest'
+  }
 }
 
 function updateMeetingBounds(slotId, bounds) {
@@ -296,6 +372,7 @@ module.exports = {
   chromeLikeUserAgent,
   chromeClientHintBrands,
   applyChromeIdentity,
+  buildJoinAssistScript,
   normalizeBounds,
   isHttpUrl,
   windows
