@@ -1,11 +1,11 @@
 'use strict'
 
 /**
- * Dedicated top-level BrowserWindows for meeting providers (especially Google Meet).
+ * Dedicated top-level BrowserWindows for Meeting Cast.
  *
- * Google Meet frequently works in Chrome but fails inside Electron <webview>
- * guests (unsupported client / join error after Ask to join). A normal
- * BrowserWindow without the CLEVER preload is much closer to Chrome.
+ * Meeting Cast is intentionally NOT Webcast: live player display uses a real
+ * Electron BrowserWindow over the slot. Providers such as Google Meet often
+ * work in Chrome but fail inside Electron <webview> guests.
  */
 
 /** @type {Map<string, import('electron').BrowserWindow>} */
