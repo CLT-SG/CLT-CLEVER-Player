@@ -19,7 +19,18 @@ Meeting Cast is rendered by CLEVER-Service’s preview Vue app (`SlotMeetingCast
 
 Video Wall Meeting Cast loads the provider join URL automatically when the slot becomes active. Do not require an on-screen Open / Join click for live display.
 
-Google Meet guest joins commonly need host admission. Keep Meet’s own UI interactive (no CLEVER overlay covering “Ask to join”). If Meet shows “You can’t join this video call”, the host must admit the guest (or org policy / sign-in must allow the join); CLEVER cannot bypass that.
+### Google Meet / Teams / Zoom / Webex on Electron
+
+These providers often work in Google Chrome but **fail inside Electron `<webview>` guests** (unsupported client after Ask to join). CLEVER-Player therefore opens them in a dedicated top-level `BrowserWindow` positioned over the slot:
+
+- IPC: `meeting-open-window` / `meeting-close-window` / `meeting-update-bounds`
+- No CLEVER preload in that window (closer to Chrome)
+- Chrome-like user agent without an `Electron/` token
+- Guest name fill + Ask to join assist after load
+
+Jitsi remains in the slot `<webview>` because embed is supported.
+
+Google Meet guest joins still need host **Admit**. CLEVER cannot bypass Meet admission or org policy.
 
 ## Provider limits
 

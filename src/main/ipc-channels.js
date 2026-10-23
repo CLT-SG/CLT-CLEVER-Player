@@ -27,7 +27,10 @@ const INVOKE_CHANNELS = Object.freeze([
   'app-qrcode',
   'app-get-config',
   'updater-status',
-  'media-open-file'
+  'media-open-file',
+  'meeting-open-window',
+  'meeting-close-window',
+  'meeting-update-bounds'
 ])
 
 const RECEIVE_CHANNELS = Object.freeze([

@@ -376,6 +376,11 @@ app.on('before-quit', () => {
   } catch {
     // ignore
   }
+  try {
+    require('./src/main/meeting-window').closeAllMeetingWindows()
+  } catch {
+    // ignore
+  }
 })
 
 app.on('window-all-closed', () => {

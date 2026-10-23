@@ -151,7 +151,14 @@ contextBridge.exposeInMainWorld('cleverPlayer', {
    * Open a trusted OS file dialog for local media playback.
    * Selected files are never uploaded to CLEVER-Service by this call.
    */
-  openMediaFile: (options) => invoke('media-open-file', options || {})
+  openMediaFile: (options) => invoke('media-open-file', options || {}),
+  /**
+   * Open a meeting provider (e.g. Google Meet) in a top-level BrowserWindow.
+   * Prefer this over <webview> — Meet often rejects Electron guest webviews.
+   */
+  openMeetingWindow: (options) => invoke('meeting-open-window', options || {}),
+  closeMeetingWindow: (options) => invoke('meeting-close-window', options || {}),
+  updateMeetingBounds: (options) => invoke('meeting-update-bounds', options || {})
 })
 contextBridge.exposeInMainWorld('log', {
   info: (message) => send('app-savelog', ['info', message]),

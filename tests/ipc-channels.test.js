@@ -20,4 +20,10 @@ describe('ipc channels', () => {
   test('allows media-open-file invoke for local playback dialog', () => {
     assert.equal(isAllowed(INVOKE_CHANNELS, 'media-open-file'), true)
   })
+
+  test('allows meeting browser-window IPC for Google Meet join path', () => {
+    assert.equal(isAllowed(INVOKE_CHANNELS, 'meeting-open-window'), true)
+    assert.equal(isAllowed(INVOKE_CHANNELS, 'meeting-close-window'), true)
+    assert.equal(isAllowed(INVOKE_CHANNELS, 'meeting-update-bounds'), true)
+  })
 })

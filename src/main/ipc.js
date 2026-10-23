@@ -16,6 +16,12 @@ const {
   isExclusiveDisplayMode
 } = require('./window-bounds')
 const CreateConfig = require('../../create-config')
+const {
+  openMeetingWindow,
+  closeMeetingWindow,
+  updateMeetingBounds,
+  closeAllMeetingWindows
+} = require('./meeting-window')
 
 function getConfig() {
   return require('./config-service').getLegacyConfig()
@@ -398,6 +404,39 @@ function registerIpcHandlers({ getWindows, reloadPlayer }) {
   ipcMain.on('app-get-version', (event) => {
     event.returnValue = app.getVersion()
   })
+
+  /**
+   * Google Meet (and similar) often fail inside <webview> guests but work in a
+   * top-level BrowserWindow. SlotMeetingCast requests this for Electron players.
+   */
+  ipcMain.handle('meeting-open-window', (event, payload = {}) => {
+    if (!validateSender(event, 'meeting-open-window')) {
+      return { ok: false, error: 'unauthorized' }
+    }
+    const parent = getWindowFromEvent(event, getWindows())
+    return openMeetingWindow({
+      slotId: payload.slotId,
+      url: payload.url,
+      bounds: payload.bounds,
+      displayName: payload.displayName,
+      platform: payload.platform,
+      parent
+    })
+  })
+
+  ipcMain.handle('meeting-close-window', (event, payload = {}) => {
+    if (!validateSender(event, 'meeting-close-window')) {
+      return { ok: false, error: 'unauthorized' }
+    }
+    return closeMeetingWindow(payload.slotId)
+  })
+
+  ipcMain.handle('meeting-update-bounds', (event, payload = {}) => {
+    if (!validateSender(event, 'meeting-update-bounds')) {
+      return { ok: false, error: 'unauthorized' }
+    }
+    return updateMeetingBounds(payload.slotId, payload.bounds || {})
+  })
 }
 
 function formatDateTime(date = new Date()) {
@@ -407,5 +446,6 @@ function formatDateTime(date = new Date()) {
 module.exports = {
   registerIpcHandlers,
   isValidAccelerator,
-  formatDateTime
+  formatDateTime,
+  closeAllMeetingWindows
 }
