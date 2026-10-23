@@ -19,9 +19,10 @@ renderer.
 - Template overlay changes push `overlay_update` to players immediately
   (`:9000/api/overlay_update`, falls back to `/api/sync`). Polls also carry
   overlay fields on every slot-sync response.
-- noVNC **left control bar**: initial `show_settings` query param; runtime
-  toggles call `window.cleverSetShowSettings` via `webview.executeJavaScript`.
-  The floating gear FAB is not controlled by this setting.
+- noVNC **left control bar / settings arrow**: initial `show_settings` query
+  param; runtime toggles call `window.cleverSetShowSettings` via
+  `webview.executeJavaScript`. Slot embeds do not show a floating gear FAB;
+  settings open from the left control bar.
 - MediaMTX / HTML5 video: slot URLs send `controls=false` so native playback
   controls do not stay visible after connect/reconnect.
 
