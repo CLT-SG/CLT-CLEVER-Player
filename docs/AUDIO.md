@@ -8,7 +8,7 @@ VNC screen playback is unchanged. When a slot shows a registered ScreencastApp d
 - Two-way audio
 - Mute (local playback)
 
-All of those start **off** except Speaker. Enabling System Audio / Microphone / Two-way opens a WebRTC session to `wss://<device>:<wsPort>/audio`. That socket is not the VNC websockify path (`/screen0`, …).
+Speaker starts **on**. System Audio / Microphone / Two-way start **off** unless the Screencast VNC source has **Audio Stream** enabled in CLEVER-Service (`has_audio`), which adds `audio_system=1` to the noVNC URL and auto-subscribes System Audio. Enabling System Audio / Microphone / Two-way opens a WebRTC session to `wss://<device>:<wsPort>/audio`. That socket is not the VNC websockify path (`/screen0`, …).
 
 A compact Settings button remains available in the corner of the Screencast-VNC view so Video Wall and Console operators can open Settings without relying on the sliding control bar handle. Opening or closing Settings does not disconnect VNC.
 

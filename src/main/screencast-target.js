@@ -186,10 +186,26 @@ function buildScreencastUrl(baseHost, value, extras) {
   if (extra.vncPort) {
     params.push('vnc_port=' + encodeURIComponent(String(extra.vncPort)))
   }
-  if (extra.deviceId || extra.wsPort || extra.audioPath) {
+  const hasAudio = !!(extra.hasAudio || extra.has_audio || extra.audioSystem || extra.audio_system)
+  if (registered || extra.audioPath || hasAudio) {
     params.push('audio=1')
     params.push('audio_path=' + encodeURIComponent(extra.audioPath || '/audio'))
     params.push('audio_codec=opus')
+    // Registered ScreencastApp + Audio Stream → auto-subscribe on /audio
+    if (hasAudio || registered) {
+      params.push('audio_system=1')
+    }
+  }
+  // Video Wall multi-slot RFB: keep bitrate reasonable (noVNC quality 9 is laggy).
+  if (extra.quality != null) {
+    params.push('quality=' + encodeURIComponent(String(extra.quality)))
+  } else if (registered) {
+    params.push('quality=5')
+  }
+  if (extra.compression != null) {
+    params.push('compression=' + encodeURIComponent(String(extra.compression)))
+  } else if (registered) {
+    params.push('compression=3')
   }
   return (baseHost || '') + (params.length ? ('?' + params.join('&')) : '')
 }

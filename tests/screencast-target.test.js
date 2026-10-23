@@ -79,4 +79,26 @@ describe('Screencast-VNC connection targets', () => {
     assert.match(slotB, /path=screen0/)
     assert.equal(slotA, slotB)
   })
+
+  test('registered ScreencastApp URLs auto-subscribe system audio', () => {
+    const withAudio = buildScreencastUrl('/screencast', 'CLT-27AIO:0', {
+      deviceId: 'abc',
+      wsPort: 8840,
+      vncPort: 5900,
+      has_audio: true
+    })
+    assert.match(withAudio, /audio=1/)
+    assert.match(withAudio, /audio_system=1/)
+
+    // deviceId / wsPort alone is enough — Video Wall must join /audio
+    const registered = buildScreencastUrl('/screencast', 'CLT-27AIO:0', {
+      deviceId: 'abc',
+      wsPort: 8840,
+      vncPort: 5900
+    })
+    assert.match(registered, /audio=1/)
+    assert.match(registered, /audio_system=1/)
+    assert.match(registered, /quality=5/)
+    assert.match(registered, /compression=3/)
+  })
 })
