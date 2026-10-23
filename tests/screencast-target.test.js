@@ -98,5 +98,7 @@ describe('Screencast-VNC connection targets', () => {
     })
     assert.match(registered, /audio=1/)
     assert.match(registered, /audio_system=1/)
+    assert.match(registered, /quality=5/)
+    assert.match(registered, /compression=3/)
   })
 })
