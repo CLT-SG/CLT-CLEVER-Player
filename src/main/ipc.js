@@ -20,7 +20,8 @@ const {
   openMeetingWindow,
   closeMeetingWindow,
   updateMeetingBounds,
-  closeAllMeetingWindows
+  closeAllMeetingWindows,
+  chromeLikeUserAgent
 } = require('./meeting-window')
 
 function getConfig() {
@@ -436,6 +437,13 @@ function registerIpcHandlers({ getWindows, reloadPlayer }) {
       return { ok: false, error: 'unauthorized' }
     }
     return updateMeetingBounds(payload.slotId, payload.bounds || {})
+  })
+
+  ipcMain.handle('meeting-get-user-agent', (event) => {
+    if (!validateSender(event, 'meeting-get-user-agent')) {
+      return { ok: false, error: 'unauthorized' }
+    }
+    return { ok: true, userAgent: chromeLikeUserAgent() }
   })
 }
 

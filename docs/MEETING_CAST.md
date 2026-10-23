@@ -26,7 +26,8 @@ Meeting Cast on CLEVER-Player uses a dedicated top-level `BrowserWindow` positio
 - IPC: `meeting-open-window` / `meeting-close-window` / `meeting-update-bounds`
 - Applies to Teams, Zoom, Google Meet, Webex, and Jitsi when the player API is present
 - No CLEVER preload in that window (closer to Chrome)
-- Chrome-like user agent without an `Electron/` token
+- Stock Google Chrome user-agent + `Sec-CH-UA` client hints (never Electron’s default UA)
+- Session / `webContents` / request headers all forced to that Chrome identity
 - Guest name fill + Ask to join assist after load (Meet)
 
 Embedded `<webview>` is only a Service browser-preview fallback when the player API is unavailable.

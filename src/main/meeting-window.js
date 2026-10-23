@@ -20,12 +20,16 @@ function loggers () {
   return require('./logger').getLoggers()
 }
 
+/**
+ * Stock Google Chrome user-agent (never Electron).
+ * Uses the player's Chromium version so the major matches the real engine.
+ */
 function chromeLikeUserAgent() {
   const raw = typeof process !== 'undefined' && process.versions
     ? String(process.versions.chrome || '')
     : ''
   const chrome = raw || '134.0.0.0'
-  // Intentionally omit Electron/ token — Meet treats Electron UA as unsupported.
+  // Intentionally omit Electron/ and app-name tokens — Meet rejects Electron UA.
   if (process.platform === 'darwin') {
     return `Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${chrome} Safari/537.36`
   }
@@ -33,6 +37,62 @@ function chromeLikeUserAgent() {
     return `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${chrome} Safari/537.36`
   }
   return `Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${chrome} Safari/537.36`
+}
+
+function chromeClientHintBrands(chromeVersion) {
+  const major = String(chromeVersion || '134').split('.')[0] || '134'
+  // Mirror Chrome's Sec-CH-UA brand list — never advertise Electron.
+  return `"Chromium";v="${major}", "Not:A-Brand";v="24", "Google Chrome";v="${major}"`
+}
+
+function chromeClientHintPlatform() {
+  if (process.platform === 'darwin') return '"macOS"'
+  if (process.platform === 'win32') return '"Windows"'
+  return '"Linux"'
+}
+
+/**
+ * Force Chrome UA + client hints on the meeting session so navigations,
+ * XHR, and WebSocket upgrades never send Electron's default identity.
+ */
+function applyChromeIdentity(sess) {
+  const ua = chromeLikeUserAgent()
+  const chromeVersion = (typeof process !== 'undefined' && process.versions
+    ? String(process.versions.chrome || '')
+    : '') || '134.0.0.0'
+  const brands = chromeClientHintBrands(chromeVersion)
+  const platform = chromeClientHintPlatform()
+
+  try {
+    if (typeof sess.setUserAgent === 'function') {
+      sess.setUserAgent(ua)
+    }
+  } catch {
+    // ignore
+  }
+
+  try {
+    if (!sess.__cleverMeetingChromeIdentityHooked && sess.webRequest && sess.webRequest.onBeforeSendHeaders) {
+      sess.__cleverMeetingChromeIdentityHooked = true
+      sess.webRequest.onBeforeSendHeaders((details, callback) => {
+        const headers = { ...(details.requestHeaders || {}) }
+        Object.keys(headers).forEach((key) => {
+          if (/^user-agent$/i.test(key) || /^sec-ch-ua/i.test(key)) {
+            delete headers[key]
+          }
+        })
+        headers['User-Agent'] = ua
+        headers['Sec-CH-UA'] = brands
+        headers['Sec-CH-UA-Mobile'] = '?0'
+        headers['Sec-CH-UA-Platform'] = platform
+        callback({ requestHeaders: headers })
+      })
+    }
+  } catch {
+    // ignore — older Electron builds may not expose webRequest the same way
+  }
+
+  return ua
 }
 
 function normalizeBounds(bounds) {
@@ -122,6 +182,7 @@ function openMeetingWindow(options = {}) {
   const { BrowserWindow, session } = electronApi()
   const partition = 'persist:clever-meeting-' + String(options.platform || 'generic')
   const sess = session.fromPartition(partition)
+  const userAgent = applyChromeIdentity(sess)
 
   // Ensure media permissions for Meet/Zoom in this session.
   try {
@@ -140,13 +201,18 @@ function openMeetingWindow(options = {}) {
   let win = windows.get(key)
   if (win && !win.isDestroyed()) {
     win.setBounds(bounds)
+    try {
+      win.webContents.setUserAgent(userAgent)
+    } catch {
+      // ignore
+    }
     if (win.webContents.getURL() !== url) {
-      win.loadURL(url, { userAgent: chromeLikeUserAgent() }).catch((err) => {
+      win.loadURL(url, { userAgent }).catch((err) => {
         errorLog.warn('meeting window reload failed', err && err.message)
       })
     }
     win.show()
-    return { ok: true, reused: true, mode: 'browser_window' }
+    return { ok: true, reused: true, mode: 'browser_window', userAgent }
   }
 
   win = new BrowserWindow({
@@ -191,7 +257,7 @@ function openMeetingWindow(options = {}) {
     if (windows.get(key) === win) windows.delete(key)
   })
 
-  win.webContents.setUserAgent(chromeLikeUserAgent())
+  win.webContents.setUserAgent(userAgent)
 
   win.webContents.on('did-finish-load', () => {
     const script = buildPrejoinScript(options.displayName)
@@ -201,13 +267,17 @@ function openMeetingWindow(options = {}) {
     }, 1600)
   })
 
-  win.loadURL(url, { userAgent: chromeLikeUserAgent() }).then(() => {
-    log.info('Opened meeting browser window', { slotId: key, platform: options.platform || null })
+  win.loadURL(url, { userAgent }).then(() => {
+    log.info('Opened meeting browser window', {
+      slotId: key,
+      platform: options.platform || null,
+      userAgent
+    })
   }).catch((err) => {
     errorLog.warn('meeting window load failed', err && err.message)
   })
 
-  return { ok: true, reused: false, mode: 'browser_window' }
+  return { ok: true, reused: false, mode: 'browser_window', userAgent }
 }
 
 function updateMeetingBounds(slotId, bounds) {
@@ -224,6 +294,8 @@ module.exports = {
   closeAllMeetingWindows,
   updateMeetingBounds,
   chromeLikeUserAgent,
+  chromeClientHintBrands,
+  applyChromeIdentity,
   normalizeBounds,
   isHttpUrl,
   windows

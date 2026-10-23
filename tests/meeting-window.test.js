@@ -9,10 +9,12 @@ const {
 } = require('../src/main/meeting-window')
 
 describe('meeting-window helpers', () => {
-  test('builds a Chrome-like UA without an Electron token', () => {
+  test('builds a stock Google Chrome UA without an Electron token', () => {
     const ua = chromeLikeUserAgent()
     assert.match(ua, /Chrome\//)
+    assert.match(ua, /Safari\/537\.36$/)
     assert.equal(/Electron\//i.test(ua), false)
+    assert.equal(/cleverplayer/i.test(ua), false)
   })
 
   test('normalizes bounds with minimum size', () => {

@@ -158,7 +158,9 @@ contextBridge.exposeInMainWorld('cleverPlayer', {
    */
   openMeetingWindow: (options) => invoke('meeting-open-window', options || {}),
   closeMeetingWindow: (options) => invoke('meeting-close-window', options || {}),
-  updateMeetingBounds: (options) => invoke('meeting-update-bounds', options || {})
+  updateMeetingBounds: (options) => invoke('meeting-update-bounds', options || {}),
+  /** Stock Google Chrome UA for Meeting Cast (never Electron's default UA). */
+  getMeetingUserAgent: () => invoke('meeting-get-user-agent')
 })
 contextBridge.exposeInMainWorld('log', {
   info: (message) => send('app-savelog', ['info', message]),
