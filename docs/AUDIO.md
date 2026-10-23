@@ -16,7 +16,18 @@ If audio fails or reconnects, the VNC picture stays up.
 
 ## Slot mute and fullscreen background mute
 
-Slot mute/unmute uses a compact 🔇 / 🔊 icon on the **left** side of each Video Wall / Console slot. Mute only changes audio (Electron `setAudioMuted` plus guest HTML/noVNC mute) and must never remount Screencast-VNC or recreate CLEVER-node connections.
+Slot mute/unmute uses a compact 🔇 / 🔊 icon on the **top-right** of each Video Wall / Console slot when the overlay is enabled. Mute only changes audio (Electron `setAudioMuted` plus guest HTML/noVNC mute) and must never remount Screencast-VNC or recreate CLEVER-node connections.
+
+## Slot overlay display settings
+
+Visibility of the content/playlist name label, mute icon, and noVNC left side control panel is configurable:
+
+| Mode | Ownership | Persistence |
+|------|-----------|-------------|
+| Video Wall | CLEVER-Service template fields `show_content_name`, `show_mute_icon`, `show_screencast_settings` | Slot Overlay button beside Mute BG Full; soft `overlay_update` to players |
+| Console | Preview OSD prefs in `localStorage` key `consoleOverlaySettings` | Device-local; **does not** write Video Wall template settings |
+
+Hiding the mute icon or noVNC side panel does not change mute state or the VNC/MediaMTX connection. The left control bar / settings arrow is toggled with `show_settings` / `cleverSetShowSettings` inside CLEVER-node without remounting the webview (slot embeds have no floating gear FAB).
 
 CLEVER-Service fans out soft `mute_update` payloads **synchronously** to each Video Wall player's `:9000/api/mute_update` (falls back to `/api/sync`) so audio changes apply immediately without waiting for the 10s poll cycle. Only the affected slot is updated.
 
