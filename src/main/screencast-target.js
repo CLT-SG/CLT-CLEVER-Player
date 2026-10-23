@@ -186,10 +186,15 @@ function buildScreencastUrl(baseHost, value, extras) {
   if (extra.vncPort) {
     params.push('vnc_port=' + encodeURIComponent(String(extra.vncPort)))
   }
-  if (extra.deviceId || extra.wsPort || extra.audioPath) {
+  const hasAudio = !!(extra.hasAudio || extra.has_audio || extra.audioSystem || extra.audio_system)
+  if (extra.deviceId || extra.wsPort || extra.audioPath || hasAudio) {
     params.push('audio=1')
     params.push('audio_path=' + encodeURIComponent(extra.audioPath || '/audio'))
     params.push('audio_codec=opus')
+    // CLEVER-Service Audio Stream → auto-subscribe system audio on the viewer
+    if (hasAudio) {
+      params.push('audio_system=1')
+    }
   }
   return (baseHost || '') + (params.length ? ('?' + params.join('&')) : '')
 }
