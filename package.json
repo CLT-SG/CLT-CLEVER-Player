@@ -35,22 +35,22 @@
     "ubuntu64": "npm run package:linux"
   },
   "dependencies": {
-    "@napi-rs/canvas": "^1.0.8",
+    "@napi-rs/canvas": "^1.0.13",
     "cors": "^2.8.6",
-    "date-and-time": "^4.5.2",
+    "date-and-time": "^4.7.0",
     "electron-log": "^5.4.4",
     "electron-shutdown-command": "^2.0.1",
-    "electron-updater": "^6.8.9",
-    "express": "^5.2.1",
+    "electron-updater": "^6.8.11",
+    "express": "^5.3.0",
     "macaddress": "^0.5.4",
     "qrcode": "^1.5.4",
-    "systeminformation": "^5.33.7"
+    "systeminformation": "^5.33.16"
   },
   "devDependencies": {
-    "electron": "^44.1.1",
-    "electron-builder": "^26.15.3",
-    "eslint": "^10.9.1",
-    "globals": "^17.12.0"
+    "electron": "^44.9.3",
+    "electron-builder": "^26.18.0",
+    "eslint": "^10.13.0",
+    "globals": "^17.13.0"
   },
   "build": {
     "appId": "com.clt.cleverplayer",
