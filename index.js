@@ -203,21 +203,42 @@ function createWindows() {
     registration.setApplyConfigHandler(async (desired, revision, meta) => {
       const { playerLog } = getLoggers()
       const previousRole = (meta && meta.previousRole) || registration.currentAppliedRole()
+      const before = configService.getValues()
+      const previousTemplateId = String(before.TEMPLATE_ID || '')
+      const previousVideowallId = String(before.VIDEOWALL_ID || '')
+
       registration.applyDesiredConfigLocally(desired)
       applyRuntimeSettings(configService.getSnapshot())
 
       const settings = configService.getValues()
       const nextRole = registration.currentAppliedRole()
       const roleChanged = previousRole !== nextRole
+      const nextTemplateId = String(
+        (desired && desired.templateId != null && desired.templateId !== '')
+          ? desired.templateId
+          : (meta && meta.templateId != null ? meta.templateId : settings.TEMPLATE_ID) || ''
+      )
+      const nextVideowallId = String(
+        (desired && desired.videowallId != null && desired.videowallId !== '')
+          ? desired.videowallId
+          : (meta && meta.videowallId != null ? meta.videowallId : settings.VIDEOWALL_ID) || ''
+      )
+      // Template/wall id changes must reload preview — writing TEMPLATE_ID alone
+      // left Synced while the window still showed the old layout URL.
+      const templateOrWallChanged =
+        nextTemplateId !== previousTemplateId || nextVideowallId !== previousVideowallId
 
       playerLog.info('Applying server configuration', {
         revision,
         previousRole,
         nextRole,
-        roleChanged
+        roleChanged,
+        previousTemplateId,
+        nextTemplateId,
+        templateOrWallChanged
       })
 
-      if (roleChanged) {
+      if (roleChanged || templateOrWallChanged) {
         // Tear down Console chrome when entering Video Wall so interactive
         // surfaces cannot linger after a Console → Video Wall transition.
         if (nextRole === 'videowall' && serverWin && !serverWin.isDestroyed()) {
@@ -228,7 +249,7 @@ function createWindows() {
             // ignore
           }
         }
-        // Reload preview/login URLs for the new CTRL_TYPE without restarting Electron.
+        // Reload preview/login URLs for the new CTRL_TYPE / template without restarting Electron.
         await reloadPlayer()
         if (nextRole === 'console' && mainWin && serverWin && !serverWin.isDestroyed()) {
           stackConsoleAboveLogin(mainWin, serverWin)
