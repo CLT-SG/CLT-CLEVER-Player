@@ -154,7 +154,13 @@ class CreateConfig {
           }
         }
         if (config.ctrltype === 'console' && serverWin && !serverWin.isDestroyed()) {
-          await mainWin.loadURL('http://' + config.controller + '/preview/login')
+          let loginUrl = 'http://' + config.controller + '/preview/login'
+          if (config.videowall_id) {
+            const wallId = encodeURIComponent(String(config.videowall_id))
+            const redirect = encodeURIComponent('/previewAuth?videowall_id=' + wallId + '&reload=true')
+            loginUrl += '?videowall_id=' + wallId + '&redirect=' + redirect
+          }
+          await mainWin.loadURL(loginUrl)
           serverWin.show()
           applyWindowMode(serverWin, values, screen.getPrimaryDisplay())
           await serverWin.loadURL('http://' + config.controller)
