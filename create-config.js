@@ -4,7 +4,7 @@ const crypto = require('crypto')
 const { app, dialog, screen } = require('electron')
 const date = require('date-and-time')
 const macaddress = require('macaddress')
-const { isReachable } = require('./src/main/reachable')
+const { isReachable, waitUntilReachable } = require('./src/main/reachable')
 const { getLocalFileUrl } = require('./src/main/security')
 const { getLoggers } = require('./src/main/logger')
 const { getAppDir } = require('./src/main/paths')
@@ -115,7 +115,18 @@ class CreateConfig {
       status = false
     } else {
       try {
-        status = await isReachable('http://' + config.controller, { timeout: timeoutMs })
+        // Retry on first launch — a single early miss used to flash offline.html
+        // then recover once DHCP/LAN was ready.
+        const attemptTimeout = Math.min(Math.max(timeoutMs, 1000), 3000)
+        status = await waitUntilReachable('http://' + config.controller, {
+          timeout: attemptTimeout,
+          attempts: 6,
+          delayMs: 350
+        })
+        if (!status) {
+          // Final longer probe before committing to the offline page.
+          status = await isReachable('http://' + config.controller, { timeout: timeoutMs })
+        }
       } catch (error) {
         errorLog.warn('Network error while checking controller', error)
         status = false
@@ -173,9 +184,15 @@ class CreateConfig {
         log.warn('Server http://' + config.cleverweb + ' is offline')
       }
       applyWindowMode(mainWin, values, screen.getPrimaryDisplay())
+      if (!mainWin.isVisible()) {
+        mainWin.show()
+      }
       mainWin.focus()
     } else {
       await mainWin.loadURL(getLocalFileUrl('src/activate.html'))
+      if (!mainWin.isVisible()) {
+        mainWin.show()
+      }
     }
   }
 }

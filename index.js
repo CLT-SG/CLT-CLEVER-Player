@@ -173,7 +173,9 @@ function createWindows() {
   mainWin.on('ready-to-show', () => {
     log.info('Application ready')
     mainWin.setBackgroundColor('#242322')
-    mainWin.show()
+    // Do not show yet — CreateConfig.checkSerial retries reachability and
+    // loads preview/login (or offline only after retries). Showing early made
+    // the first-launch offline page flash before the controller responded.
   })
 
   try {

@@ -34,7 +34,32 @@ async function isReachable(target, { timeout = 10000 } = {}) {
   }
 }
 
+/**
+ * Retry controller reachability on boot. A single early failure (NIC/DHCP
+ * not ready yet) previously flashed offline.html then recovered — avoid that.
+ */
+async function waitUntilReachable(target, {
+  timeout = 2500,
+  attempts = 6,
+  delayMs = 400
+} = {}) {
+  for (let i = 0; i < attempts; i++) {
+    try {
+      if (await isReachable(target, { timeout })) {
+        return true
+      }
+    } catch {
+      // continue
+    }
+    if (i < attempts - 1) {
+      await new Promise((resolve) => setTimeout(resolve, delayMs + i * 250))
+    }
+  }
+  return false
+}
+
 module.exports = {
   normalizeUrl,
-  isReachable
+  isReachable,
+  waitUntilReachable
 }
