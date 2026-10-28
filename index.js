@@ -14,6 +14,11 @@ const { registerIpcHandlers } = require('./src/main/ipc')
 const { isReachable } = require('./src/main/reachable')
 const configService = require('./src/main/config-service')
 const { resolveWindowChrome } = require('./src/main/window-bounds')
+const {
+  hideConsoleChrome,
+  stackConsoleAboveLogin,
+  toggleConsoleLoginStack,
+} = require('./src/main/window-stack')
 
 setupLogging()
 setupSecurity()
@@ -31,12 +36,15 @@ if (!gotTheLock) {
 } else {
   app.on('second-instance', () => {
     const { log } = getLoggers()
-    if (serverWin && !serverWin.isDestroyed()) {
+    const values = configService.getValues()
+    const isVideoWall = values.CTRL_TYPE === 'videowall' || values.ctrltype === 'videowall'
+    if (!isVideoWall && serverWin && !serverWin.isDestroyed() && serverWin.isVisible()) {
       if (serverWin.isMinimized()) {
         log.info('Server window restore process.')
         serverWin.show()
       }
-      serverWin.focus()
+      stackConsoleAboveLogin(mainWin, serverWin)
+      return
     }
     if (mainWin && !mainWin.isDestroyed()) {
       if (mainWin.isMinimized()) {
@@ -155,6 +163,11 @@ function createWindows() {
     serverWin.setAlwaysOnTop(true, 'screen-saver')
   }
 
+  // Video Wall never uses the management/login pair — keep it hidden from birth.
+  if (values.CTRL_TYPE === 'videowall' || values.ctrltype === 'videowall') {
+    hideConsoleChrome(serverWin)
+  }
+
   bindWindowGuards(mainWin, 'Main window')
   bindWindowGuards(serverWin, 'Server window')
 
@@ -209,7 +222,7 @@ function createWindows() {
         // surfaces cannot linger after a Console → Video Wall transition.
         if (nextRole === 'videowall' && serverWin && !serverWin.isDestroyed()) {
           try {
-            serverWin.hide()
+            hideConsoleChrome(serverWin)
             await serverWin.loadURL('about:blank')
           } catch {
             // ignore
@@ -217,8 +230,8 @@ function createWindows() {
         }
         // Reload preview/login URLs for the new CTRL_TYPE without restarting Electron.
         await reloadPlayer()
-        if (nextRole === 'console' && serverWin && !serverWin.isDestroyed()) {
-          serverWin.show()
+        if (nextRole === 'console' && mainWin && serverWin && !serverWin.isDestroyed()) {
+          stackConsoleAboveLogin(mainWin, serverWin)
         }
       } else if (mainWin && !mainWin.isDestroyed() && screen) {
         const { applyWindowMode, isVideoWallCtrl } = require('./src/main/window-bounds')
@@ -260,16 +273,12 @@ function registerShortcuts() {
   })
 
   globalShortcut.register('Alt+PageUp', () => {
-    if (!mainWin || !serverWin) {
+    // Console mode: toggle login (preview) above/below the management console.
+    // Video Wall has no serverWin chrome — no-op when server is hidden.
+    if (!mainWin || !serverWin || serverWin.isDestroyed() || !serverWin.isVisible()) {
       return
     }
-    if (mainWin.isFocused()) {
-      mainWin.blur()
-      serverWin.focus()
-    } else {
-      serverWin.blur()
-      mainWin.focus()
-    }
+    toggleConsoleLoginStack(mainWin, serverWin)
   })
 
   globalShortcut.register('Alt+Delete', () => {
