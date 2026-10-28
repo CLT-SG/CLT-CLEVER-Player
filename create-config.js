@@ -4,12 +4,16 @@ const crypto = require('crypto')
 const { app, dialog, screen } = require('electron')
 const date = require('date-and-time')
 const macaddress = require('macaddress')
-const { isReachable } = require('./src/main/reachable')
+const { isReachable, waitUntilReachable } = require('./src/main/reachable')
 const { getLocalFileUrl } = require('./src/main/security')
 const { getLoggers } = require('./src/main/logger')
 const { getAppDir } = require('./src/main/paths')
 const configService = require('./src/main/config-service')
-const { applyWindowMode } = require('./src/main/window-bounds')
+const { applyWindowMode, isVideoWallCtrl } = require('./src/main/window-bounds')
+const {
+  hideConsoleChrome,
+  stackConsoleAboveLogin,
+} = require('./src/main/window-stack')
 
 class CreateConfig {
   static async createConfigFile(ipAddress, appDir, ex) {
@@ -115,7 +119,18 @@ class CreateConfig {
       status = false
     } else {
       try {
-        status = await isReachable('http://' + config.controller, { timeout: timeoutMs })
+        // Retry on first launch — a single early miss used to flash offline.html
+        // then recover once DHCP/LAN was ready.
+        const attemptTimeout = Math.min(Math.max(timeoutMs, 1000), 3000)
+        status = await waitUntilReachable('http://' + config.controller, {
+          timeout: attemptTimeout,
+          attempts: 6,
+          delayMs: 350
+        })
+        if (!status) {
+          // Final longer probe before committing to the offline page.
+          status = await isReachable('http://' + config.controller, { timeout: timeoutMs })
+        }
       } catch (error) {
         errorLog.warn('Network error while checking controller', error)
         status = false
@@ -144,32 +159,59 @@ class CreateConfig {
     if (config.serialkey === hash) {
       if (status) {
         playerLog.info('Device connection status online')
-        if (config.ctrltype === 'videowall') {
-          {
-            let preview = 'http://' + config.controller + '/preview/' + config.tempid + '/videowall/false'
-            if (config.videowall_id) {
-              preview += '?videowall_id=' + encodeURIComponent(String(config.videowall_id))
-            }
-            await mainWin.loadURL(preview)
+        if (isVideoWallCtrl(config.ctrltype) || isVideoWallCtrl(values)) {
+          // Video Wall: preview only — never open login or management console.
+          hideConsoleChrome(serverWin)
+          let preview = 'http://' + config.controller + '/preview/' + config.tempid + '/videowall/false'
+          if (config.videowall_id) {
+            preview += '?videowall_id=' + encodeURIComponent(String(config.videowall_id))
           }
-        }
-        if (config.ctrltype === 'console' && serverWin && !serverWin.isDestroyed()) {
-          await mainWin.loadURL('http://' + config.controller + '/preview/login')
-          serverWin.show()
+          await mainWin.loadURL(preview)
+          applyWindowMode(mainWin, values, screen.getPrimaryDisplay())
+          if (!mainWin.isVisible()) {
+            mainWin.show()
+          }
+          mainWin.focus()
+        } else if (config.ctrltype === 'console' && serverWin && !serverWin.isDestroyed()) {
+          // Console: load login under the management UI; console stays on top
+          // until the operator brings login forward (Alt+PageUp).
+          let loginUrl = 'http://' + config.controller + '/preview/login'
+          if (config.videowall_id) {
+            const wallId = encodeURIComponent(String(config.videowall_id))
+            const redirect = encodeURIComponent('/previewAuth?videowall_id=' + wallId + '&reload=true')
+            loginUrl += '?videowall_id=' + wallId + '&redirect=' + redirect
+          }
+          await mainWin.loadURL(loginUrl)
+          applyWindowMode(mainWin, values, screen.getPrimaryDisplay())
           applyWindowMode(serverWin, values, screen.getPrimaryDisplay())
           await serverWin.loadURL('http://' + config.controller)
-          serverWin.blur()
+          stackConsoleAboveLogin(mainWin, serverWin)
+        } else {
+          applyWindowMode(mainWin, values, screen.getPrimaryDisplay())
+          if (!mainWin.isVisible()) {
+            mainWin.show()
+          }
+          mainWin.focus()
         }
         log.info('Server http://' + config.controller + '/preview/' + config.tempid + ' is online')
       } else {
         playerLog.info('Device connection status offline')
+        hideConsoleChrome(serverWin)
         await mainWin.loadURL(getLocalFileUrl('src/offline.html'))
         log.warn('Server http://' + config.cleverweb + ' is offline')
+        applyWindowMode(mainWin, values, screen.getPrimaryDisplay())
+        if (!mainWin.isVisible()) {
+          mainWin.show()
+        }
+        mainWin.focus()
       }
-      applyWindowMode(mainWin, values, screen.getPrimaryDisplay())
-      mainWin.focus()
     } else {
+      hideConsoleChrome(serverWin)
       await mainWin.loadURL(getLocalFileUrl('src/activate.html'))
+      if (!mainWin.isVisible()) {
+        mainWin.show()
+      }
+      mainWin.focus()
     }
   }
 }

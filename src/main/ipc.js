@@ -134,16 +134,11 @@ function registerIpcHandlers({ getWindows, reloadPlayer }) {
       return
     }
     const { mainWin, serverWin } = getWindows()
-    if (!mainWin || !serverWin) {
+    if (!mainWin || !serverWin || serverWin.isDestroyed() || !serverWin.isVisible()) {
       return
     }
-    if (mainWin.isFocused()) {
-      mainWin.blur()
-      serverWin.focus()
-    } else {
-      serverWin.blur()
-      mainWin.focus()
-    }
+    const { toggleConsoleLoginStack } = require('./window-stack')
+    toggleConsoleLoginStack(mainWin, serverWin)
   })
 
   ipcMain.on('app-registerShortkey', (event, args) => {

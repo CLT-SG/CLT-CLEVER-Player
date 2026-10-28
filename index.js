@@ -14,6 +14,11 @@ const { registerIpcHandlers } = require('./src/main/ipc')
 const { isReachable } = require('./src/main/reachable')
 const configService = require('./src/main/config-service')
 const { resolveWindowChrome } = require('./src/main/window-bounds')
+const {
+  hideConsoleChrome,
+  stackConsoleAboveLogin,
+  toggleConsoleLoginStack,
+} = require('./src/main/window-stack')
 
 setupLogging()
 setupSecurity()
@@ -31,12 +36,15 @@ if (!gotTheLock) {
 } else {
   app.on('second-instance', () => {
     const { log } = getLoggers()
-    if (serverWin && !serverWin.isDestroyed()) {
+    const values = configService.getValues()
+    const isVideoWall = values.CTRL_TYPE === 'videowall' || values.ctrltype === 'videowall'
+    if (!isVideoWall && serverWin && !serverWin.isDestroyed() && serverWin.isVisible()) {
       if (serverWin.isMinimized()) {
         log.info('Server window restore process.')
         serverWin.show()
       }
-      serverWin.focus()
+      stackConsoleAboveLogin(mainWin, serverWin)
+      return
     }
     if (mainWin && !mainWin.isDestroyed()) {
       if (mainWin.isMinimized()) {
@@ -155,6 +163,11 @@ function createWindows() {
     serverWin.setAlwaysOnTop(true, 'screen-saver')
   }
 
+  // Video Wall never uses the management/login pair — keep it hidden from birth.
+  if (values.CTRL_TYPE === 'videowall' || values.ctrltype === 'videowall') {
+    hideConsoleChrome(serverWin)
+  }
+
   bindWindowGuards(mainWin, 'Main window')
   bindWindowGuards(serverWin, 'Server window')
 
@@ -173,7 +186,9 @@ function createWindows() {
   mainWin.on('ready-to-show', () => {
     log.info('Application ready')
     mainWin.setBackgroundColor('#242322')
-    mainWin.show()
+    // Do not show yet — CreateConfig.checkSerial retries reachability and
+    // loads preview/login (or offline only after retries). Showing early made
+    // the first-launch offline page flash before the controller responded.
   })
 
   try {
@@ -188,35 +203,56 @@ function createWindows() {
     registration.setApplyConfigHandler(async (desired, revision, meta) => {
       const { playerLog } = getLoggers()
       const previousRole = (meta && meta.previousRole) || registration.currentAppliedRole()
+      const before = configService.getValues()
+      const previousTemplateId = String(before.TEMPLATE_ID || '')
+      const previousVideowallId = String(before.VIDEOWALL_ID || '')
+
       registration.applyDesiredConfigLocally(desired)
       applyRuntimeSettings(configService.getSnapshot())
 
       const settings = configService.getValues()
       const nextRole = registration.currentAppliedRole()
       const roleChanged = previousRole !== nextRole
+      const nextTemplateId = String(
+        (desired && desired.templateId != null && desired.templateId !== '')
+          ? desired.templateId
+          : (meta && meta.templateId != null ? meta.templateId : settings.TEMPLATE_ID) || ''
+      )
+      const nextVideowallId = String(
+        (desired && desired.videowallId != null && desired.videowallId !== '')
+          ? desired.videowallId
+          : (meta && meta.videowallId != null ? meta.videowallId : settings.VIDEOWALL_ID) || ''
+      )
+      // Template/wall id changes must reload preview — writing TEMPLATE_ID alone
+      // left Synced while the window still showed the old layout URL.
+      const templateOrWallChanged =
+        nextTemplateId !== previousTemplateId || nextVideowallId !== previousVideowallId
 
       playerLog.info('Applying server configuration', {
         revision,
         previousRole,
         nextRole,
-        roleChanged
+        roleChanged,
+        previousTemplateId,
+        nextTemplateId,
+        templateOrWallChanged
       })
 
-      if (roleChanged) {
+      if (roleChanged || templateOrWallChanged) {
         // Tear down Console chrome when entering Video Wall so interactive
         // surfaces cannot linger after a Console → Video Wall transition.
         if (nextRole === 'videowall' && serverWin && !serverWin.isDestroyed()) {
           try {
-            serverWin.hide()
+            hideConsoleChrome(serverWin)
             await serverWin.loadURL('about:blank')
           } catch {
             // ignore
           }
         }
-        // Reload preview/login URLs for the new CTRL_TYPE without restarting Electron.
+        // Reload preview/login URLs for the new CTRL_TYPE / template without restarting Electron.
         await reloadPlayer()
-        if (nextRole === 'console' && serverWin && !serverWin.isDestroyed()) {
-          serverWin.show()
+        if (nextRole === 'console' && mainWin && serverWin && !serverWin.isDestroyed()) {
+          stackConsoleAboveLogin(mainWin, serverWin)
         }
       } else if (mainWin && !mainWin.isDestroyed() && screen) {
         const { applyWindowMode, isVideoWallCtrl } = require('./src/main/window-bounds')
@@ -258,16 +294,12 @@ function registerShortcuts() {
   })
 
   globalShortcut.register('Alt+PageUp', () => {
-    if (!mainWin || !serverWin) {
+    // Console mode: toggle login (preview) above/below the management console.
+    // Video Wall has no serverWin chrome — no-op when server is hidden.
+    if (!mainWin || !serverWin || serverWin.isDestroyed() || !serverWin.isVisible()) {
       return
     }
-    if (mainWin.isFocused()) {
-      mainWin.blur()
-      serverWin.focus()
-    } else {
-      serverWin.blur()
-      mainWin.focus()
-    }
+    toggleConsoleLoginStack(mainWin, serverWin)
   })
 
   globalShortcut.register('Alt+Delete', () => {

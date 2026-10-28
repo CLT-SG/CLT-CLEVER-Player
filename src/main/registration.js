@@ -238,7 +238,21 @@ async function heartbeat() {
       storeDeviceToken(result.deviceToken)
     }
 
-    // IDs may update without a full role transition.
+    const pendingRevision = Number(result.configRevision) || 0
+    // Pending revisions must go through maybeApplyDesiredConfig so the apply
+    // handler can detect template/wall changes and reload preview. Writing
+    // TEMPLATE_ID here first made templateOrWallChanged look false.
+    if (pendingRevision > lastAppliedRevision) {
+      const applied = await maybeApplyDesiredConfig(result)
+      if (applied) {
+        pendingConfigError = null
+        // One-shot acknowledgment heartbeat with the new applied role (no recurse loop).
+        return acknowledgeAppliedConfig()
+      }
+      return result
+    }
+
+    // Already synced — keep local ids aligned without a reload cycle.
     const updates = {}
     if (result.videowallId != null && result.videowallId !== '') {
       updates.VIDEOWALL_ID = String(result.videowallId)
@@ -248,15 +262,6 @@ async function heartbeat() {
     }
     if (Object.keys(updates).length) {
       configService.updateValues(updates)
-    }
-
-    // Role and other desired settings apply only through the revision path.
-    // Do not silently write CTRL_TYPE from deviceRole without runtime reload.
-    const applied = await maybeApplyDesiredConfig(result)
-    if (applied) {
-      pendingConfigError = null
-      // One-shot acknowledgment heartbeat with the new applied role (no recurse loop).
-      return acknowledgeAppliedConfig()
     }
 
     return result
