@@ -29,5 +29,8 @@ describe('ipc channels', () => {
     assert.equal(isAllowed(INVOKE_CHANNELS, 'meeting-close-window'), true)
     assert.equal(isAllowed(INVOKE_CHANNELS, 'meeting-update-bounds'), true)
     assert.equal(isAllowed(INVOKE_CHANNELS, 'meeting-get-user-agent'), true)
+    assert.equal(isAllowed(INVOKE_CHANNELS, 'audio-get-state'), true)
+    assert.equal(isAllowed(INVOKE_CHANNELS, 'audio-set-system-volume'), true)
+    assert.equal(isAllowed(INVOKE_CHANNELS, 'audio-set-output-device'), true)
   })
 })

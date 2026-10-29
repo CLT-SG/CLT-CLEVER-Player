@@ -28,6 +28,17 @@ const {
   closeAllMeetingWindows,
   chromeLikeUserAgent
 } = require('./meeting-window')
+const {
+  getSystemAudioState,
+  setSystemVolume,
+  setSystemMute,
+  setSystemOutputDevice
+} = require('./system-audio')
+const {
+  getApplicationAudioState,
+  setApplicationMute,
+  setApplicationVolume
+} = require('./app-audio')
 
 function getConfig() {
   return require('./config-service').getLegacyConfig()
@@ -465,6 +476,76 @@ function registerIpcHandlers({ getWindows, reloadPlayer }) {
       return { ok: false, error: 'unauthorized' }
     }
     return { ok: true, userAgent: chromeLikeUserAgent() }
+  })
+
+  async function buildAudioState() {
+    const system = await getSystemAudioState()
+    const application = getApplicationAudioState()
+    return {
+      ok: true,
+      system,
+      application,
+      inElectron: true
+    }
+  }
+
+  ipcMain.handle('audio-get-state', async (event) => {
+    if (!validateSender(event, 'audio-get-state')) {
+      return { ok: false, error: 'unauthorized' }
+    }
+    return buildAudioState()
+  })
+
+  ipcMain.handle('audio-refresh', async (event) => {
+    if (!validateSender(event, 'audio-refresh')) {
+      return { ok: false, error: 'unauthorized' }
+    }
+    return buildAudioState()
+  })
+
+  ipcMain.handle('audio-set-system-volume', async (event, volume) => {
+    if (!validateSender(event, 'audio-set-system-volume')) {
+      return { ok: false, error: 'unauthorized' }
+    }
+    const result = await setSystemVolume(volume)
+    const state = await buildAudioState()
+    return { ...result, state }
+  })
+
+  ipcMain.handle('audio-set-system-mute', async (event, muted) => {
+    if (!validateSender(event, 'audio-set-system-mute')) {
+      return { ok: false, error: 'unauthorized' }
+    }
+    const result = await setSystemMute(muted)
+    const state = await buildAudioState()
+    return { ...result, state }
+  })
+
+  ipcMain.handle('audio-set-output-device', async (event, deviceId) => {
+    if (!validateSender(event, 'audio-set-output-device')) {
+      return { ok: false, error: 'unauthorized' }
+    }
+    const result = await setSystemOutputDevice(deviceId)
+    const state = await buildAudioState()
+    return { ...result, state }
+  })
+
+  ipcMain.handle('audio-set-app-volume', async (event, volume) => {
+    if (!validateSender(event, 'audio-set-app-volume')) {
+      return { ok: false, error: 'unauthorized' }
+    }
+    const result = setApplicationVolume(volume)
+    const state = await buildAudioState()
+    return { ...result, state }
+  })
+
+  ipcMain.handle('audio-set-app-mute', async (event, muted) => {
+    if (!validateSender(event, 'audio-set-app-mute')) {
+      return { ok: false, error: 'unauthorized' }
+    }
+    const result = setApplicationMute(muted)
+    const state = await buildAudioState()
+    return { ...result, state }
   })
 }
 

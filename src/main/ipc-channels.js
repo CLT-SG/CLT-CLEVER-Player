@@ -33,7 +33,14 @@ const INVOKE_CHANNELS = Object.freeze([
   'meeting-open-window',
   'meeting-close-window',
   'meeting-update-bounds',
-  'meeting-get-user-agent'
+  'meeting-get-user-agent',
+  'audio-get-state',
+  'audio-set-system-volume',
+  'audio-set-system-mute',
+  'audio-set-output-device',
+  'audio-set-app-volume',
+  'audio-set-app-mute',
+  'audio-refresh'
 ])
 
 const RECEIVE_CHANNELS = Object.freeze([

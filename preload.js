@@ -160,7 +160,15 @@ contextBridge.exposeInMainWorld('cleverPlayer', {
   closeMeetingWindow: (options) => invoke('meeting-close-window', options || {}),
   updateMeetingBounds: (options) => invoke('meeting-update-bounds', options || {}),
   /** Stock Google Chrome UA for Meeting Cast (never Electron's default UA). */
-  getMeetingUserAgent: () => invoke('meeting-get-user-agent')
+  getMeetingUserAgent: () => invoke('meeting-get-user-agent'),
+  /** Global Audio & Output OSD — system + application (not per-slot). */
+  getAudioState: () => invoke('audio-get-state'),
+  refreshAudioState: () => invoke('audio-refresh'),
+  setSystemVolume: (volume) => invoke('audio-set-system-volume', volume),
+  setSystemMute: (muted) => invoke('audio-set-system-mute', muted),
+  setOutputDevice: (deviceId) => invoke('audio-set-output-device', deviceId),
+  setAppVolume: (volume) => invoke('audio-set-app-volume', volume),
+  setAppMute: (muted) => invoke('audio-set-app-mute', muted)
 })
 contextBridge.exposeInMainWorld('log', {
   info: (message) => send('app-savelog', ['info', message]),
