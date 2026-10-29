@@ -185,7 +185,16 @@ class CreateConfig {
           applyWindowMode(mainWin, values, screen.getPrimaryDisplay())
           applyWindowMode(serverWin, values, screen.getPrimaryDisplay())
           await serverWin.loadURL('http://' + config.controller)
+          // Raise console above login, then re-assert after Chromium focus settles.
           stackConsoleAboveLogin(mainWin, serverWin)
+          setTimeout(() => {
+            try {
+              const { enforcePreferredStack } = require('./src/main/window-stack')
+              enforcePreferredStack(mainWin, serverWin)
+            } catch {
+              stackConsoleAboveLogin(mainWin, serverWin)
+            }
+          }, 250)
         } else {
           applyWindowMode(mainWin, values, screen.getPrimaryDisplay())
           if (!mainWin.isVisible()) {

@@ -18,6 +18,8 @@ const {
   hideConsoleChrome,
   stackConsoleAboveLogin,
   toggleConsoleLoginStack,
+  enforcePreferredStack,
+  getPreferredSurface,
 } = require('./src/main/window-stack')
 const { registerDefaultOsdShortcut } = require('./src/main/osd-shortcut')
 
@@ -171,6 +173,30 @@ function createWindows() {
 
   bindWindowGuards(mainWin, 'Main window')
   bindWindowGuards(serverWin, 'Server window')
+
+  // Console: keep management console above login after focus/load races unless
+  // the operator intentionally switched with Alt+PageUp / app-switchwindow.
+  const reassertConsoleStack = () => {
+    const valuesNow = configService.getValues()
+    const isConsole = valuesNow.CTRL_TYPE === 'console' || valuesNow.ctrltype === 'console'
+    if (!isConsole || !mainWin || !serverWin || mainWin.isDestroyed() || serverWin.isDestroyed()) {
+      return
+    }
+    if (!serverWin.isVisible()) return
+    if (getPreferredSurface() !== 'console') return
+    enforcePreferredStack(mainWin, serverWin)
+  }
+  mainWin.on('focus', () => {
+    if (getPreferredSurface() === 'console') {
+      setTimeout(reassertConsoleStack, 0)
+    }
+  })
+  serverWin.on('show', () => {
+    setTimeout(reassertConsoleStack, 50)
+  })
+  serverWin.webContents.on('did-finish-load', () => {
+    setTimeout(reassertConsoleStack, 50)
+  })
 
   mainWin.on('closed', () => {
     playerLog.info('Player stopped')
