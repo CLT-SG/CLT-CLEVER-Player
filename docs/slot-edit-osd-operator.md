@@ -14,6 +14,17 @@ CLEVER-Player hosts the Electron shell for Console and Video Wall. Interactive s
 - This works while a Screencast/VNC `<webview>` has focus (unlike page-level key handlers alone).
 - Hover-to-show OSD was removed in CLEVER-Service so remote control is not interrupted.
 
+## Push to Video Wall (Console)
+
+CLEVER-Service owns the two Console workflows; the player only hosts the destination Video Wall window:
+
+| Workflow | Service UI | Player role |
+|----------|------------|-------------|
+| **Push Selected Content** | Slot toolbox → assigns a source onto a wall cell via Service APIs | Receives incremental slot sync as today |
+| **Push Current Layout** | OSD Push tab → full Console template | `POST /api/pushFromConsole` stores the layout payload and reloads preview; rejects when `source_resolution` does not match this wall's template resolution |
+
+Do not fold selected-content assignment into `pushFromConsole`.
+
 ## Out of scope for Player
 
 - Drag/resize handle chrome, OSD tabs, Assign Source UI, and the content interaction shield remain Service-owned Vue.
