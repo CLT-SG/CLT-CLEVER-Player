@@ -95,9 +95,10 @@ function buildDeviceInfo(extra) {
       },
       audio: {
         applicationVolume: true,
-        systemVolume: false,
+        systemVolume: true,
         mute: true,
-        note: 'Player controls application/webview mute; OS master volume is not managed'
+        outputDevice: true,
+        note: 'OSD Audio & Output controls OS master volume/mute when host tools allow; application mute is separate and global (not per-slot)'
       },
       roles: ['videowall', 'console'],
       heartbeat: true,
