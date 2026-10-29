@@ -10,5 +10,6 @@ CLEVER-Player hosts the Electron shell for Console and Video Wall. Interactive s
 
 ## Out of scope for Player
 
-- Drag/resize handle chrome, OSD tabs, and Assign Source UI remain Service-owned Vue.
+- Drag/resize handle chrome, OSD tabs, Assign Source UI, and the content interaction shield remain Service-owned Vue.
 - Screencast connection state continues to come from Service content/screencast payloads and CLEVER-node / ScreencastApp sessions.
+- Layout-editing pointer locks must not require Player IPC or Screencast disconnects.
