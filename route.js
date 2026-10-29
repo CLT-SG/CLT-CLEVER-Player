@@ -17,6 +17,12 @@ const {
   shouldFallbackToReload
 } = require('./src/main/slot-sync')
 const { applyWindowMode, isVideoWallCtrl } = require('./src/main/window-bounds')
+const {
+  tryParseLayoutResolution,
+  sameLayoutResolution,
+  formatLayoutResolution,
+  resolutionFromTemplateData
+} = require('./src/main/layout-resolution')
 
 const port = 9000
 let mainWindow
@@ -225,21 +231,62 @@ function createApp() {
   api.post('/api/pushFromConsole', async (req, res) => {
     const { log, errorLog, playerLog } = getLoggers()
     const config = loadConfig()
-    const templateData = req.body && req.body.templateData
+    const body = req.body && typeof req.body === 'object' ? req.body : {}
+    const templateData = body.templateData
+    const sourceResolution = body.source_resolution || body.sourceResolution || null
     try {
       if (!config) {
-        return res.status(500).end('Config missing')
+        return res.status(500).json({ message: 'Config missing' })
       }
       if (config.ctrltype === 'console') {
         return res.status(200).end('Not allowed')
       }
       if (config.ctrltype === 'videowall' && mainWindow && !mainWindow.isDestroyed()) {
-        const encoded = JSON.stringify(String(templateData ?? ''))
-        await mainWindow.webContents.executeJavaScript(
-          `window.localStorage.setItem("templateData", ${encoded});`
-        )
-        const incoming = normalizePayload(Object.assign({}, req.body, {
-          action: (req.body && req.body.action) || ACTIONS.RELOAD_LAYOUT,
+        // Full-layout push: reject when Console resolution does not match this wall.
+        const source = tryParseLayoutResolution(sourceResolution)
+          || resolutionFromTemplateData(templateData)
+        if (source) {
+          let destination = null
+          try {
+            const existing = await mainWindow.webContents.executeJavaScript(
+              'window.localStorage.getItem("templateData")'
+            )
+            destination = resolutionFromTemplateData(existing)
+          } catch {
+            destination = null
+          }
+          if (destination && !sameLayoutResolution(source, destination)) {
+            const message = `Layout resolution ${formatLayoutResolution(source)} does not match this Video Wall (${formatLayoutResolution(destination)}).`
+            errorLog.warn('pushFromConsole rejected: resolution mismatch', {
+              source: formatLayoutResolution(source),
+              destination: formatLayoutResolution(destination)
+            })
+            return res.status(422).json({
+              compatible: false,
+              message,
+              source_resolution: formatLayoutResolution(source),
+              destination_resolution: formatLayoutResolution(destination)
+            })
+          }
+        }
+
+        const encodedTemplate = JSON.stringify(String(templateData ?? ''))
+        const slotsRaw = body.slotsList != null ? body.slotsList : body.slots
+        const contentsRaw = body.contents
+        const storeScript = [
+          `window.localStorage.setItem("templateData", ${encodedTemplate});`,
+          slotsRaw != null
+            ? `window.localStorage.setItem("slotsList", ${JSON.stringify(String(slotsRaw))});`
+            : '',
+          contentsRaw != null
+            ? `window.localStorage.setItem("contents", ${JSON.stringify(String(contentsRaw))});`
+            : '',
+          'true'
+        ].filter(Boolean).join('\n')
+        await mainWindow.webContents.executeJavaScript(storeScript)
+
+        const incoming = normalizePayload(Object.assign({}, body, {
+          action: (body.action) || ACTIONS.RELOAD_LAYOUT,
           pushed: true
         }))
         if (isIncremental(incoming)) {
@@ -247,7 +294,7 @@ function createApp() {
         } else {
           await mainWindow.loadURL(previewUrl(config, config.tempid, true))
           refitMainWindow()
-          playerLog.info('[INFO] Layout reload')
+          playerLog.info('[INFO] Layout reload from Console push')
         }
       }
       log.info('PUSH CONSOLE : Pushed from console preset updated successfully.')
