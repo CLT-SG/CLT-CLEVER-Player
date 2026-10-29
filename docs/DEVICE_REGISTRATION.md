@@ -50,4 +50,4 @@ Do not persist VNC tokens or session credentials in content `CACHE_*` settings â
 ## Limitations
 
 - Display resolution changes are reported but not applied by the player (OS-managed).
-- Application mute/volume only; OS master volume is not controlled.
+- Global OSD Audio & Output can manage OS master volume/mute when host tools allow; application mute remains separate. Per-slot mute is unchanged.

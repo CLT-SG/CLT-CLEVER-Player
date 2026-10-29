@@ -34,6 +34,6 @@ test('buildDeviceInfo exposes registration fields without electron screen', () =
   assert.ok(info.hostname)
   assert.ok(info.capabilities)
   assert.ok(info.capabilities.display)
-  assert.equal(info.capabilities.audio.systemVolume, false)
+  assert.equal(info.capabilities.audio.systemVolume, true)
   assert.ok(Array.isArray(info.monitors))
 })
