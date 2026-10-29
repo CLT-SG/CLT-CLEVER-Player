@@ -8,6 +8,8 @@ describe('ipc channels', () => {
   test('allows known renderer send channels used by CLEVER web', () => {
     assert.equal(isAllowed(SEND_CHANNELS, 'app-switchwindow'), true)
     assert.equal(isAllowed(SEND_CHANNELS, 'app-registerShortkey'), true)
+    assert.equal(isAllowed(SEND_CHANNELS, 'app-registerOsdShortcut'), true)
+    assert.equal(isAllowed(SEND_CHANNELS, 'app-unregisterOsdShortcut'), true)
     assert.equal(isAllowed(RECEIVE_CHANNELS, 'app-shortkeyRefresh'), true)
     assert.equal(isAllowed(RECEIVE_CHANNELS, 'app-toggleOsd'), true)
   })

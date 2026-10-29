@@ -9,6 +9,11 @@ const { getLoggers } = require('./logger')
 const { isAllowedMainNavigation } = require('./security')
 const { isValidAccelerator } = require('./config-template')
 const {
+  setOsdShortcutWindows,
+  registerOsdShortcuts,
+  unregisterOsdShortcuts,
+} = require('./osd-shortcut')
+const {
   getLegacyWorkAreaBounds,
   resolveRendererWindowBounds,
   isVideoWallCtrl,
@@ -58,6 +63,7 @@ function getWindowFromEvent(event, windows) {
 
 function registerIpcHandlers({ getWindows, reloadPlayer }) {
   const { log, errorLog, playerLog } = getLoggers()
+  setOsdShortcutWindows(getWindows)
 
   ipcMain.on('app-exit', (event) => {
     if (!validateSender(event, 'app-exit')) {
@@ -186,6 +192,22 @@ function registerIpcHandlers({ getWindows, reloadPlayer }) {
     } catch (error) {
       errorLog.warn('Failed to unregister shortcut', error)
     }
+  })
+
+  ipcMain.on('app-registerOsdShortcut', (event, args) => {
+    if (!validateSender(event, 'app-registerOsdShortcut')) {
+      return
+    }
+    const shortkey = args && args.shortkey
+    const shortkeyAlt = args && args.shortkeyAlt
+    registerOsdShortcuts(shortkey, shortkeyAlt)
+  })
+
+  ipcMain.on('app-unregisterOsdShortcut', (event) => {
+    if (!validateSender(event, 'app-unregisterOsdShortcut')) {
+      return
+    }
+    unregisterOsdShortcuts()
   })
 
   ipcMain.on('window-set-bounds', (event, bounds) => {
