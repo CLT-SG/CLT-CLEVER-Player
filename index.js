@@ -47,8 +47,8 @@ if (!gotTheLock) {
         log.info('Server window restore process.')
         serverWin.show()
       }
-      // Keep Console login/preview above management unless operator switched.
-      if (getPreferredSurface() === 'console') {
+      // Keep preferred surface (default: Console login/preview above management).
+      if (getPreferredSurface() === 'management') {
         stackConsoleAboveLogin(mainWin, serverWin)
       } else {
         stackLoginAboveConsole(mainWin, serverWin)
@@ -192,12 +192,12 @@ function createWindows() {
     enforcePreferredStack(mainWin, serverWin)
   }
   serverWin.on('focus', () => {
-    if (getPreferredSurface() === 'login') {
+    if (getPreferredSurface() === 'player') {
       setTimeout(reassertPreferredStack, 0)
     }
   })
   mainWin.on('focus', () => {
-    if (getPreferredSurface() === 'console') {
+    if (getPreferredSurface() === 'management') {
       setTimeout(reassertPreferredStack, 0)
     }
   })

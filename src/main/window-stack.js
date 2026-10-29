@@ -5,20 +5,21 @@
  * - mainWin  → Console login / preview (player surface)
  * - serverWin → management UI (CLEVER-Service)
  *
- * Startup puts Console login/preview on top. Operators bring the management
- * window forward with Alt+PageUp / app-switchwindow.
+ * Startup keeps Console login/preview on top. Operators bring management
+ * forward with Alt+PageUp / app-switchwindow.
  *
  * Video Wall mode never shows serverWin (no login / management chrome).
  *
- * Both windows may be always-on-top; use different Electron levels so the
- * preferred surface reliably stays above the other after first launch.
+ * Both windows may be always-on-top; use different Electron levels and an
+ * explicit demote/raise sequence so the preferred surface stays above after
+ * first launch and load/focus races.
  */
 
 const LEVEL_TOP = 'screen-saver'
 const LEVEL_UNDER = 'floating'
 
-/** @type {'console'|'login'} preferred top surface */
-let preferredSurface = 'login'
+/** @type {'player'|'management'} preferred top surface */
+let preferredSurface = 'player'
 
 function alive(win) {
   return Boolean(win && typeof win.isDestroyed === 'function' && !win.isDestroyed())
@@ -34,6 +35,12 @@ function showQuiet(win) {
 function setAlwaysOnTopLevel(win, level) {
   if (!alive(win) || typeof win.setAlwaysOnTop !== 'function') return
   try {
+    // Some hosts ignore level changes unless always-on-top is cleared first.
+    win.setAlwaysOnTop(false)
+  } catch {
+    // ignore
+  }
+  try {
     win.setAlwaysOnTop(true, level)
   } catch {
     try {
@@ -41,6 +48,15 @@ function setAlwaysOnTopLevel(win, level) {
     } catch {
       // ignore
     }
+  }
+}
+
+function blurQuiet(win) {
+  if (!alive(win) || typeof win.blur !== 'function') return
+  try {
+    win.blur()
+  } catch {
+    // ignore
   }
 }
 
@@ -62,10 +78,12 @@ function raise(win) {
 }
 
 function applyStackLevels(topWin, underWin) {
-  // Under first, then top — last raise wins on platforms that ignore levels.
+  // Demote under window first, then raise top — last raise wins on platforms
+  // that ignore always-on-top levels.
   if (alive(underWin)) {
     setAlwaysOnTopLevel(underWin, LEVEL_UNDER)
     showQuiet(underWin)
+    blurQuiet(underWin)
   }
   if (alive(topWin)) {
     setAlwaysOnTopLevel(topWin, LEVEL_TOP)
@@ -83,9 +101,12 @@ function hideConsoleChrome(serverWin) {
   }
 }
 
-/** Raise management UI (serverWin) above Console login/preview. */
+/**
+ * Raise management UI (serverWin) above Console login/preview.
+ * Kept name for existing call sites / IPC toggle.
+ */
 function stackConsoleAboveLogin(mainWin, serverWin) {
-  preferredSurface = 'console'
+  preferredSurface = 'management'
   if (alive(mainWin)) {
     showQuiet(mainWin)
   }
@@ -95,9 +116,12 @@ function stackConsoleAboveLogin(mainWin, serverWin) {
   return preferredSurface
 }
 
-/** Default: Console login/preview (mainWin) above management UI. */
+/**
+ * Default: Console login/preview (mainWin) above management UI.
+ * Kept name for existing call sites.
+ */
 function stackLoginAboveConsole(mainWin, serverWin) {
-  preferredSurface = 'login'
+  preferredSurface = 'player'
   if (alive(serverWin)) {
     showQuiet(serverWin)
   }
@@ -109,13 +133,13 @@ function stackLoginAboveConsole(mainWin, serverWin) {
 
 /**
  * Re-assert the preferred surface after async loads / focus races.
- * @returns {'console'|'login'|null}
+ * @returns {'player'|'management'|null}
  */
 function enforcePreferredStack(mainWin, serverWin) {
   if (!alive(mainWin) || !alive(serverWin) || !serverWin.isVisible()) {
     return null
   }
-  if (preferredSurface === 'console') {
+  if (preferredSurface === 'management') {
     return stackConsoleAboveLogin(mainWin, serverWin)
   }
   return stackLoginAboveConsole(mainWin, serverWin)
@@ -127,17 +151,29 @@ function getPreferredSurface() {
 
 /**
  * Toggle which surface is on top (Alt+PageUp / app-switchwindow).
- * Uses preferredSurface so focus races do not invert the operator intent.
- * @returns {'login'|'console'|null}
+ * @returns {'player'|'management'|null}
  */
 function toggleConsoleLoginStack(mainWin, serverWin) {
   if (!alive(mainWin) || !alive(serverWin)) {
     return null
   }
-  if (preferredSurface === 'login') {
+  if (preferredSurface === 'player') {
     return stackConsoleAboveLogin(mainWin, serverWin)
   }
   return stackLoginAboveConsole(mainWin, serverWin)
+}
+
+/**
+ * Schedule a few re-asserts after startup so a late management focus cannot
+ * permanently cover Console login/preview.
+ */
+function schedulePreferredStackEnforcement(mainWin, serverWin, delays) {
+  const waitMs = Array.isArray(delays) && delays.length ? delays : [0, 250, 750, 1500]
+  waitMs.forEach((ms) => {
+    setTimeout(() => {
+      enforcePreferredStack(mainWin, serverWin)
+    }, Math.max(0, Number(ms) || 0))
+  })
 }
 
 module.exports = {
@@ -148,6 +184,7 @@ module.exports = {
   stackLoginAboveConsole,
   toggleConsoleLoginStack,
   enforcePreferredStack,
+  schedulePreferredStackEnforcement,
   getPreferredSurface,
   raise,
 }

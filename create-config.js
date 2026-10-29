@@ -185,15 +185,14 @@ class CreateConfig {
           applyWindowMode(mainWin, values, screen.getPrimaryDisplay())
           applyWindowMode(serverWin, values, screen.getPrimaryDisplay())
           await serverWin.loadURL('http://' + config.controller)
+          // Console login/preview must stay above management until Alt+PageUp.
           stackLoginAboveConsole(mainWin, serverWin)
-          setTimeout(() => {
-            try {
-              const { enforcePreferredStack } = require('./src/main/window-stack')
-              enforcePreferredStack(mainWin, serverWin)
-            } catch {
-              stackLoginAboveConsole(mainWin, serverWin)
-            }
-          }, 250)
+          try {
+            const { schedulePreferredStackEnforcement } = require('./src/main/window-stack')
+            schedulePreferredStackEnforcement(mainWin, serverWin)
+          } catch {
+            setTimeout(() => stackLoginAboveConsole(mainWin, serverWin), 250)
+          }
         } else {
           applyWindowMode(mainWin, values, screen.getPrimaryDisplay())
           if (!mainWin.isVisible()) {

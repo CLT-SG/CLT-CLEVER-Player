@@ -19,7 +19,9 @@ function fakeWin(name, { visible = false, focused = false } = {}) {
     focused,
     destroyed: false,
     raised: 0,
+    blurred: 0,
     alwaysOnTopLevel: null,
+    alwaysOnTopClears: 0,
   }
   return {
     name,
@@ -35,8 +37,16 @@ function fakeWin(name, { visible = false, focused = false } = {}) {
       state.focused = true
       state.visible = true
     },
-    blur() { state.focused = false },
-    setAlwaysOnTop(_flag, level) {
+    blur() {
+      state.focused = false
+      state.blurred += 1
+    },
+    setAlwaysOnTop(flag, level) {
+      if (!flag) {
+        state.alwaysOnTopLevel = null
+        state.alwaysOnTopClears += 1
+        return
+      }
       state.alwaysOnTopLevel = level || 'normal'
     },
   }
@@ -48,54 +58,69 @@ test('hideConsoleChrome hides the management window', () => {
   assert.equal(server.state.visible, false)
 })
 
-test('default preferred surface is Console login/preview', () => {
-  assert.equal(getPreferredSurface(), 'login')
+test('default preferred surface is Console login/preview (player)', () => {
+  assert.equal(getPreferredSurface(), 'player')
 })
 
 test('stackLoginAboveConsole raises Console login/preview above management', () => {
   const login = fakeWin('login')
-  const consoleWin = fakeWin('console', { visible: true, focused: true })
-  stackLoginAboveConsole(login, consoleWin)
+  const management = fakeWin('management', { visible: true, focused: true })
+  stackLoginAboveConsole(login, management)
   assert.equal(login.state.visible, true)
-  assert.equal(consoleWin.state.visible, true)
+  assert.equal(management.state.visible, true)
   assert.equal(login.state.focused, true)
   assert.equal(login.state.raised, 1)
+  assert.equal(management.state.blurred >= 1, true)
   assert.equal(login.state.alwaysOnTopLevel, LEVEL_TOP)
-  assert.equal(consoleWin.state.alwaysOnTopLevel, LEVEL_UNDER)
-  assert.equal(getPreferredSurface(), 'login')
+  assert.equal(management.state.alwaysOnTopLevel, LEVEL_UNDER)
+  assert.equal(getPreferredSurface(), 'player')
 })
 
 test('stackConsoleAboveLogin raises management above Console login/preview', () => {
   const login = fakeWin('login', { visible: true })
-  const consoleWin = fakeWin('console')
-  stackConsoleAboveLogin(login, consoleWin)
-  assert.equal(consoleWin.state.focused, true)
-  assert.equal(consoleWin.state.raised, 1)
-  assert.equal(consoleWin.state.alwaysOnTopLevel, LEVEL_TOP)
+  const management = fakeWin('management')
+  stackConsoleAboveLogin(login, management)
+  assert.equal(management.state.focused, true)
+  assert.equal(management.state.raised, 1)
+  assert.equal(management.state.alwaysOnTopLevel, LEVEL_TOP)
   assert.equal(login.state.alwaysOnTopLevel, LEVEL_UNDER)
-  assert.equal(getPreferredSurface(), 'console')
+  assert.equal(getPreferredSurface(), 'management')
 })
 
-test('toggleConsoleLoginStack flips between surfaces using preferred state', () => {
+test('toggleConsoleLoginStack flips between player and management', () => {
   const login = fakeWin('login', { visible: true, focused: true })
-  const consoleWin = fakeWin('console', { visible: true })
-  stackLoginAboveConsole(login, consoleWin)
-  assert.equal(toggleConsoleLoginStack(login, consoleWin), 'console')
-  assert.equal(consoleWin.state.focused, true)
-  assert.equal(getPreferredSurface(), 'console')
-  assert.equal(toggleConsoleLoginStack(login, consoleWin), 'login')
+  const management = fakeWin('management', { visible: true })
+  stackLoginAboveConsole(login, management)
+  assert.equal(toggleConsoleLoginStack(login, management), 'management')
+  assert.equal(management.state.focused, true)
+  assert.equal(getPreferredSurface(), 'management')
+  assert.equal(toggleConsoleLoginStack(login, management), 'player')
   assert.equal(login.state.focused, true)
-  assert.equal(getPreferredSurface(), 'login')
+  assert.equal(getPreferredSurface(), 'player')
 })
 
 test('enforcePreferredStack restores Console login/preview after a focus race', () => {
   const login = fakeWin('login', { visible: true })
-  const consoleWin = fakeWin('console', { visible: true, focused: true })
-  stackLoginAboveConsole(login, consoleWin)
-  consoleWin.focus()
+  const management = fakeWin('management', { visible: true, focused: true })
+  stackLoginAboveConsole(login, management)
+  management.focus()
   login.state.raised = 0
-  consoleWin.state.raised = 0
-  assert.equal(enforcePreferredStack(login, consoleWin), 'login')
+  management.state.raised = 0
+  assert.equal(enforcePreferredStack(login, management), 'player')
+  assert.equal(login.state.focused, true)
+  assert.equal(login.state.raised >= 1, true)
+})
+
+test('schedulePreferredStackEnforcement reasserts player on top after delays', async () => {
+  const { schedulePreferredStackEnforcement } = require('../src/main/window-stack')
+  const login = fakeWin('login', { visible: true })
+  const management = fakeWin('management', { visible: true, focused: true })
+  stackLoginAboveConsole(login, management)
+  management.focus()
+  login.state.raised = 0
+  schedulePreferredStackEnforcement(login, management, [0, 5])
+  await new Promise((resolve) => setTimeout(resolve, 20))
+  assert.equal(getPreferredSurface(), 'player')
   assert.equal(login.state.focused, true)
   assert.equal(login.state.raised >= 1, true)
 })
