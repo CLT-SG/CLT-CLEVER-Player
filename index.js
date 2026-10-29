@@ -19,6 +19,7 @@ const {
   stackConsoleAboveLogin,
   toggleConsoleLoginStack,
 } = require('./src/main/window-stack')
+const { registerDefaultOsdShortcut } = require('./src/main/osd-shortcut')
 
 setupLogging()
 setupSecurity()
@@ -316,30 +317,9 @@ function registerShortcuts() {
     mainWin.reload()
   })
 
-  // Console operator OSD: must work even when Screencast/VNC <webview> has focus.
-  // Hover-to-show was stealing attention during remote control.
-  globalShortcut.register('Alt+O', () => {
-    const cfg = configService.getValues()
-    const isConsole = cfg.CTRL_TYPE === 'console' || cfg.ctrltype === 'console'
-    if (!isConsole || !mainWin || mainWin.isDestroyed()) {
-      return
-    }
-    if (!mainWin.isFocused() && !(serverWin && !serverWin.isDestroyed() && serverWin.isFocused())) {
-      // Only while CLEVER-Player owns focus (preview or management window).
-      return
-    }
-    try {
-      mainWin.webContents.send('app-toggleOsd')
-      // Bring preview forward if the management console currently has focus.
-      if (serverWin && !serverWin.isDestroyed() && serverWin.isFocused()) {
-        mainWin.show()
-        mainWin.focus()
-      }
-      log.info('Console OSD toggle requested (Alt+O)')
-    } catch (error) {
-      getLoggers().errorLog.warn('Failed to toggle Console OSD', error)
-    }
-  })
+  // Console operator OSD: default Alt+O; Service may re-register via IPC.
+  // Must work even when Screencast/VNC <webview> has focus.
+  registerDefaultOsdShortcut(() => ({ mainWin, serverWin }))
 }
 
 async function bootstrapWithConfig() {

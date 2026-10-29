@@ -11,6 +11,8 @@ const SEND_CHANNELS = Object.freeze([
   'app-switchwindow',
   'app-registerShortkey',
   'app-unregisterShortkey',
+  'app-registerOsdShortcut',
+  'app-unregisterOsdShortcut',
   'window-set-bounds',
   'window-load-url',
   'window-center',
