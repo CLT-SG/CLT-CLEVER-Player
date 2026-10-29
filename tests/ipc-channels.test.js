@@ -8,6 +8,8 @@ describe('ipc channels', () => {
   test('allows known renderer send channels used by CLEVER web', () => {
     assert.equal(isAllowed(SEND_CHANNELS, 'app-switchwindow'), true)
     assert.equal(isAllowed(SEND_CHANNELS, 'app-registerShortkey'), true)
+    assert.equal(isAllowed(SEND_CHANNELS, 'app-registerOsdShortcut'), true)
+    assert.equal(isAllowed(SEND_CHANNELS, 'app-unregisterOsdShortcut'), true)
     assert.equal(isAllowed(RECEIVE_CHANNELS, 'app-shortkeyRefresh'), true)
     assert.equal(isAllowed(RECEIVE_CHANNELS, 'app-toggleOsd'), true)
   })
@@ -27,5 +29,8 @@ describe('ipc channels', () => {
     assert.equal(isAllowed(INVOKE_CHANNELS, 'meeting-close-window'), true)
     assert.equal(isAllowed(INVOKE_CHANNELS, 'meeting-update-bounds'), true)
     assert.equal(isAllowed(INVOKE_CHANNELS, 'meeting-get-user-agent'), true)
+    assert.equal(isAllowed(INVOKE_CHANNELS, 'audio-get-state'), true)
+    assert.equal(isAllowed(INVOKE_CHANNELS, 'audio-set-system-volume'), true)
+    assert.equal(isAllowed(INVOKE_CHANNELS, 'audio-set-output-device'), true)
   })
 })

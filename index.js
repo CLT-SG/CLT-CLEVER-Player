@@ -17,8 +17,12 @@ const { resolveWindowChrome } = require('./src/main/window-bounds')
 const {
   hideConsoleChrome,
   stackConsoleAboveLogin,
+  stackLoginAboveConsole,
   toggleConsoleLoginStack,
+  enforcePreferredStack,
+  getPreferredSurface,
 } = require('./src/main/window-stack')
+const { registerDefaultOsdShortcut } = require('./src/main/osd-shortcut')
 
 setupLogging()
 setupSecurity()
@@ -43,7 +47,12 @@ if (!gotTheLock) {
         log.info('Server window restore process.')
         serverWin.show()
       }
-      stackConsoleAboveLogin(mainWin, serverWin)
+      // Keep preferred surface (default: Console login/preview above management).
+      if (getPreferredSurface() === 'management') {
+        stackConsoleAboveLogin(mainWin, serverWin)
+      } else {
+        stackLoginAboveConsole(mainWin, serverWin)
+      }
       return
     }
     if (mainWin && !mainWin.isDestroyed()) {
@@ -171,6 +180,37 @@ function createWindows() {
   bindWindowGuards(mainWin, 'Main window')
   bindWindowGuards(serverWin, 'Server window')
 
+  // Console: keep Console login/preview above management after focus/load races
+  // unless the operator intentionally switched with Alt+PageUp / app-switchwindow.
+  const reassertPreferredStack = () => {
+    const valuesNow = configService.getValues()
+    const isConsole = valuesNow.CTRL_TYPE === 'console' || valuesNow.ctrltype === 'console'
+    if (!isConsole || !mainWin || !serverWin || mainWin.isDestroyed() || serverWin.isDestroyed()) {
+      return
+    }
+    if (!serverWin.isVisible()) return
+    enforcePreferredStack(mainWin, serverWin)
+  }
+  serverWin.on('focus', () => {
+    if (getPreferredSurface() === 'player') {
+      setTimeout(reassertPreferredStack, 0)
+    }
+  })
+  mainWin.on('focus', () => {
+    if (getPreferredSurface() === 'management') {
+      setTimeout(reassertPreferredStack, 0)
+    }
+  })
+  serverWin.on('show', () => {
+    setTimeout(reassertPreferredStack, 50)
+  })
+  serverWin.webContents.on('did-finish-load', () => {
+    setTimeout(reassertPreferredStack, 50)
+  })
+  mainWin.webContents.on('did-finish-load', () => {
+    setTimeout(reassertPreferredStack, 50)
+  })
+
   mainWin.on('closed', () => {
     playerLog.info('Player stopped')
     mainWin = null
@@ -252,7 +292,8 @@ function createWindows() {
         // Reload preview/login URLs for the new CTRL_TYPE / template without restarting Electron.
         await reloadPlayer()
         if (nextRole === 'console' && mainWin && serverWin && !serverWin.isDestroyed()) {
-          stackConsoleAboveLogin(mainWin, serverWin)
+          // Default: Console login/preview on top; shortkey brings management forward.
+          stackLoginAboveConsole(mainWin, serverWin)
         }
       } else if (mainWin && !mainWin.isDestroyed() && screen) {
         const { applyWindowMode, isVideoWallCtrl } = require('./src/main/window-bounds')
@@ -316,30 +357,9 @@ function registerShortcuts() {
     mainWin.reload()
   })
 
-  // Console operator OSD: must work even when Screencast/VNC <webview> has focus.
-  // Hover-to-show was stealing attention during remote control.
-  globalShortcut.register('Alt+O', () => {
-    const cfg = configService.getValues()
-    const isConsole = cfg.CTRL_TYPE === 'console' || cfg.ctrltype === 'console'
-    if (!isConsole || !mainWin || mainWin.isDestroyed()) {
-      return
-    }
-    if (!mainWin.isFocused() && !(serverWin && !serverWin.isDestroyed() && serverWin.isFocused())) {
-      // Only while CLEVER-Player owns focus (preview or management window).
-      return
-    }
-    try {
-      mainWin.webContents.send('app-toggleOsd')
-      // Bring preview forward if the management console currently has focus.
-      if (serverWin && !serverWin.isDestroyed() && serverWin.isFocused()) {
-        mainWin.show()
-        mainWin.focus()
-      }
-      log.info('Console OSD toggle requested (Alt+O)')
-    } catch (error) {
-      getLoggers().errorLog.warn('Failed to toggle Console OSD', error)
-    }
-  })
+  // Console operator OSD: default Alt+O; Service may re-register via IPC.
+  // Must work even when Screencast/VNC <webview> has focus.
+  registerDefaultOsdShortcut(() => ({ mainWin, serverWin }))
 }
 
 async function bootstrapWithConfig() {

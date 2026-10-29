@@ -1,5 +1,17 @@
 # Optional WebRTC audio in CLEVER Player
 
+## Global Audio & Output (OSD)
+
+CLEVER-Player exposes a **global** Audio & Output panel (Console OSD **Audio** tab; Video Wall control-bar **Output**):
+
+- **System master volume / mute** via host OS tools (PulseAudio/`pactl` or WirePlumber/`wpctl` on Linux, AppleScript on macOS, CoreAudio via PowerShell on Windows).
+- **Output device** list/refresh when the host supports it (Linux default sink; macOS with SwitchAudioSource). Windows lists devices but does not switch without extra host tools.
+- **Application mute / soft volume** for this player’s webContents only — separate from OS master volume.
+
+These controls are never per-slot and do not change template assignments, mute icons, or Screencast WebRTC stream settings. Outside Electron (plain browser), the panel reports that system audio is unavailable.
+
+## Screencast WebRTC (remote stream)
+
 VNC screen playback is unchanged. When a slot shows a registered ScreencastApp device, the noVNC page may include `audio=1`. Audio options then appear inside the noVNC **Settings** panel:
 
 - System Audio (remote PC output → player speakers)
