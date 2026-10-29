@@ -1,6 +1,6 @@
 {
   "name": "cleverplayer",
-  "version": "5.1.5",
+  "version": "5.1.7",
   "description": "CLEVER Console & Video Wall Player",
   "main": "index.js",
   "license": "ISC",
@@ -47,7 +47,7 @@
     "systeminformation": "^5.33.16"
   },
   "devDependencies": {
-    "electron": "^44.6.0",
+    "electron": "^44.1.1",
     "electron-builder": "^26.18.0",
     "eslint": "^10.13.0",
     "globals": "^17.13.0"
