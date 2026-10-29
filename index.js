@@ -17,6 +17,7 @@ const { resolveWindowChrome } = require('./src/main/window-bounds')
 const {
   hideConsoleChrome,
   stackConsoleAboveLogin,
+  stackLoginAboveConsole,
   toggleConsoleLoginStack,
   enforcePreferredStack,
   getPreferredSurface,
@@ -46,7 +47,12 @@ if (!gotTheLock) {
         log.info('Server window restore process.')
         serverWin.show()
       }
-      stackConsoleAboveLogin(mainWin, serverWin)
+      // Keep Console login/preview above management unless operator switched.
+      if (getPreferredSurface() === 'console') {
+        stackConsoleAboveLogin(mainWin, serverWin)
+      } else {
+        stackLoginAboveConsole(mainWin, serverWin)
+      }
       return
     }
     if (mainWin && !mainWin.isDestroyed()) {
@@ -174,28 +180,35 @@ function createWindows() {
   bindWindowGuards(mainWin, 'Main window')
   bindWindowGuards(serverWin, 'Server window')
 
-  // Console: keep management console above login after focus/load races unless
-  // the operator intentionally switched with Alt+PageUp / app-switchwindow.
-  const reassertConsoleStack = () => {
+  // Console: keep Console login/preview above management after focus/load races
+  // unless the operator intentionally switched with Alt+PageUp / app-switchwindow.
+  const reassertPreferredStack = () => {
     const valuesNow = configService.getValues()
     const isConsole = valuesNow.CTRL_TYPE === 'console' || valuesNow.ctrltype === 'console'
     if (!isConsole || !mainWin || !serverWin || mainWin.isDestroyed() || serverWin.isDestroyed()) {
       return
     }
     if (!serverWin.isVisible()) return
-    if (getPreferredSurface() !== 'console') return
     enforcePreferredStack(mainWin, serverWin)
   }
+  serverWin.on('focus', () => {
+    if (getPreferredSurface() === 'login') {
+      setTimeout(reassertPreferredStack, 0)
+    }
+  })
   mainWin.on('focus', () => {
     if (getPreferredSurface() === 'console') {
-      setTimeout(reassertConsoleStack, 0)
+      setTimeout(reassertPreferredStack, 0)
     }
   })
   serverWin.on('show', () => {
-    setTimeout(reassertConsoleStack, 50)
+    setTimeout(reassertPreferredStack, 50)
   })
   serverWin.webContents.on('did-finish-load', () => {
-    setTimeout(reassertConsoleStack, 50)
+    setTimeout(reassertPreferredStack, 50)
+  })
+  mainWin.webContents.on('did-finish-load', () => {
+    setTimeout(reassertPreferredStack, 50)
   })
 
   mainWin.on('closed', () => {
@@ -279,7 +292,8 @@ function createWindows() {
         // Reload preview/login URLs for the new CTRL_TYPE / template without restarting Electron.
         await reloadPlayer()
         if (nextRole === 'console' && mainWin && serverWin && !serverWin.isDestroyed()) {
-          stackConsoleAboveLogin(mainWin, serverWin)
+          // Default: Console login/preview on top; shortkey brings management forward.
+          stackLoginAboveConsole(mainWin, serverWin)
         }
       } else if (mainWin && !mainWin.isDestroyed() && screen) {
         const { applyWindowMode, isVideoWallCtrl } = require('./src/main/window-bounds')

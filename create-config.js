@@ -12,7 +12,7 @@ const configService = require('./src/main/config-service')
 const { applyWindowMode, isVideoWallCtrl } = require('./src/main/window-bounds')
 const {
   hideConsoleChrome,
-  stackConsoleAboveLogin,
+  stackLoginAboveConsole,
 } = require('./src/main/window-stack')
 
 class CreateConfig {
@@ -173,8 +173,8 @@ class CreateConfig {
           }
           mainWin.focus()
         } else if (config.ctrltype === 'console' && serverWin && !serverWin.isDestroyed()) {
-          // Console: load login under the management UI; console stays on top
-          // until the operator brings login forward (Alt+PageUp).
+          // Console: Console login/preview on top; management underneath until
+          // the operator switches with Alt+PageUp / app-switchwindow.
           let loginUrl = 'http://' + config.controller + '/preview/login'
           if (config.videowall_id) {
             const wallId = encodeURIComponent(String(config.videowall_id))
@@ -185,14 +185,13 @@ class CreateConfig {
           applyWindowMode(mainWin, values, screen.getPrimaryDisplay())
           applyWindowMode(serverWin, values, screen.getPrimaryDisplay())
           await serverWin.loadURL('http://' + config.controller)
-          // Raise console above login, then re-assert after Chromium focus settles.
-          stackConsoleAboveLogin(mainWin, serverWin)
+          stackLoginAboveConsole(mainWin, serverWin)
           setTimeout(() => {
             try {
               const { enforcePreferredStack } = require('./src/main/window-stack')
               enforcePreferredStack(mainWin, serverWin)
             } catch {
-              stackConsoleAboveLogin(mainWin, serverWin)
+              stackLoginAboveConsole(mainWin, serverWin)
             }
           }, 250)
         } else {

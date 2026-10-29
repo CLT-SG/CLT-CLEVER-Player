@@ -2,11 +2,11 @@
 
 /**
  * Console mode uses two windows:
- * - mainWin  → preview / login (player surface)
- * - serverWin → management console (CLEVER-Service UI)
+ * - mainWin  → Console login / preview (player surface)
+ * - serverWin → management UI (CLEVER-Service)
  *
- * Startup puts the console above login. Operators bring login forward
- * (Alt+PageUp / app-switchwindow) when they need to sign in.
+ * Startup puts Console login/preview on top. Operators bring the management
+ * window forward with Alt+PageUp / app-switchwindow.
  *
  * Video Wall mode never shows serverWin (no login / management chrome).
  *
@@ -17,8 +17,8 @@
 const LEVEL_TOP = 'screen-saver'
 const LEVEL_UNDER = 'floating'
 
-/** @type {'console'|'login'} */
-let preferredSurface = 'console'
+/** @type {'console'|'login'} preferred top surface */
+let preferredSurface = 'login'
 
 function alive(win) {
   return Boolean(win && typeof win.isDestroyed === 'function' && !win.isDestroyed())
@@ -83,7 +83,7 @@ function hideConsoleChrome(serverWin) {
   }
 }
 
-/** Console startup: login underneath, management console on top. */
+/** Raise management UI (serverWin) above Console login/preview. */
 function stackConsoleAboveLogin(mainWin, serverWin) {
   preferredSurface = 'console'
   if (alive(mainWin)) {
@@ -95,7 +95,7 @@ function stackConsoleAboveLogin(mainWin, serverWin) {
   return preferredSurface
 }
 
-/** Operator wants login / preview over the management console. */
+/** Default: Console login/preview (mainWin) above management UI. */
 function stackLoginAboveConsole(mainWin, serverWin) {
   preferredSurface = 'login'
   if (alive(serverWin)) {
@@ -115,10 +115,10 @@ function enforcePreferredStack(mainWin, serverWin) {
   if (!alive(mainWin) || !alive(serverWin) || !serverWin.isVisible()) {
     return null
   }
-  if (preferredSurface === 'login') {
-    return stackLoginAboveConsole(mainWin, serverWin)
+  if (preferredSurface === 'console') {
+    return stackConsoleAboveLogin(mainWin, serverWin)
   }
-  return stackConsoleAboveLogin(mainWin, serverWin)
+  return stackLoginAboveConsole(mainWin, serverWin)
 }
 
 function getPreferredSurface() {
@@ -134,10 +134,10 @@ function toggleConsoleLoginStack(mainWin, serverWin) {
   if (!alive(mainWin) || !alive(serverWin)) {
     return null
   }
-  if (preferredSurface === 'console') {
-    return stackLoginAboveConsole(mainWin, serverWin)
+  if (preferredSurface === 'login') {
+    return stackConsoleAboveLogin(mainWin, serverWin)
   }
-  return stackConsoleAboveLogin(mainWin, serverWin)
+  return stackLoginAboveConsole(mainWin, serverWin)
 }
 
 module.exports = {
