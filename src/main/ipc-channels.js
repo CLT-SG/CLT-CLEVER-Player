@@ -36,6 +36,7 @@ const INVOKE_CHANNELS = Object.freeze([
 
 const RECEIVE_CHANNELS = Object.freeze([
   'app-shortkeyRefresh',
+  'app-toggleOsd',
   'updater-status'
 ])
 

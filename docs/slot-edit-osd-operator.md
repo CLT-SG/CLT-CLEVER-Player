@@ -8,6 +8,12 @@ CLEVER-Player hosts the Electron shell for Console and Video Wall. Interactive s
 - Preserve exact Video Wall window bounds from the template resolution.
 - Forward device registration/heartbeat; do not fork Assign Source or Screencast registries.
 
+## Console OSD shortcut
+
+- **Alt+O** is registered by CLEVER-Player and sends `app-toggleOsd` to the preview window.
+- This works while a Screencast/VNC `<webview>` has focus (unlike page-level key handlers alone).
+- Hover-to-show OSD was removed in CLEVER-Service so remote control is not interrupted.
+
 ## Out of scope for Player
 
 - Drag/resize handle chrome, OSD tabs, Assign Source UI, and the content interaction shield remain Service-owned Vue.

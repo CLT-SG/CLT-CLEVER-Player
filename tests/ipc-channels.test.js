@@ -9,6 +9,7 @@ describe('ipc channels', () => {
     assert.equal(isAllowed(SEND_CHANNELS, 'app-switchwindow'), true)
     assert.equal(isAllowed(SEND_CHANNELS, 'app-registerShortkey'), true)
     assert.equal(isAllowed(RECEIVE_CHANNELS, 'app-shortkeyRefresh'), true)
+    assert.equal(isAllowed(RECEIVE_CHANNELS, 'app-toggleOsd'), true)
   })
 
   test('rejects unknown channels', () => {
