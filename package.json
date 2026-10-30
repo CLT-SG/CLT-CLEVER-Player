@@ -57,7 +57,7 @@
     "productName": "CLEVER Player",
     "executableName": "cleverplayer",
     "copyright": "Copyright © Closed-Loop Technology Pte. Ltd",
-    "artifactName": "Clever-Player-${os}-${arch}-${version}.${ext}",
+    "artifactName": "CLEVER-Player-${os}-${arch}-${version}.${ext}",
     "files": [
       "**/*",
       "!tests/**/*",
