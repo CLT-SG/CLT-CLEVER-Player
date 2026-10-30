@@ -2,6 +2,10 @@
 
 const express = require('express')
 const cors = require('cors')
+if (process.platform === 'linux') {
+  // Screenshot composition does not need fonts; this avoids a Skia/Electron symbol collision.
+  process.env.DISABLE_SYSTEM_FONTS_LOAD = '1'
+}
 const { createCanvas, loadImage } = require('@napi-rs/canvas')
 const shutdown = require('electron-shutdown-command')
 const si = require('systeminformation')

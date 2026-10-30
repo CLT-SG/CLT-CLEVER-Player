@@ -10,6 +10,7 @@
 | `latest.yml` missing on Release        | Release workflow failed, or Linux assets were published without the Windows job                                            |
 | Tag rejected by workflow               | `vX.Y.Z` must equal `package.json` `"version": "X.Y.Z"`                                                                    |
 | Port already in use                    | Local control API did not bind; see `~/clever-console/logs/application.log`                                                |
+| Linux app exits at startup with `SIGTRAP` | Update to the latest CLEVER Player; older builds can crash during the canvas library's system-font scan under Electron      |
 | Window hangs off the right edge        | Console: leave `KIOSK_MODE=false` and `FULLSCREEN=false` so the window stays in the work area. Video Wall: a template larger than this monitor (for example 3840×2160 on 1080p) is expected to extend past the visible desktop. |
 | Layout looks stretched or full-screen after Save/Push | Update CLEVER Player and CLEVER Service together. Video Wall windows use the template resolution; Console fills the monitor work area. |
 | VNC picture works but there is no sound | Audio is off until the overlay checkboxes are enabled. It uses a separate WebRTC connection; see [AUDIO.md](AUDIO.md). |
