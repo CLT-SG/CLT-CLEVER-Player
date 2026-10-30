@@ -40,6 +40,8 @@ const {
   setApplicationVolume
 } = require('./app-audio')
 
+const { encodeLocalStorageJson } = require('./local-storage-json')
+
 function getConfig() {
   return require('./config-service').getLegacyConfig()
 }
@@ -174,11 +176,26 @@ function registerIpcHandlers({ getWindows, reloadPlayer }) {
         if (!mainWin || mainWin.isDestroyed()) {
           return
         }
-        const encoded = JSON.stringify(String(args.templateData ?? ''))
+        // Persist layout JSON (object or already-stringified) for Console reload/apply.
+        const encodedTemplate = encodeLocalStorageJson(args && args.templateData)
+        const encodedSlots = args && args.slots != null
+          ? encodeLocalStorageJson(args.slots)
+          : null
+        const encodedContents = args && args.contents != null
+          ? encodeLocalStorageJson(args.contents)
+          : null
         try {
-          await mainWin.webContents.executeJavaScript(
-            `window.localStorage.setItem("templateData", ${encoded});`
-          )
+          const script = [
+            `window.localStorage.setItem("templateData", ${encodedTemplate});`,
+            encodedSlots != null
+              ? `window.localStorage.setItem("slotsList", ${encodedSlots});`
+              : '',
+            encodedContents != null
+              ? `window.localStorage.setItem("contents", ${encodedContents});`
+              : '',
+            'true'
+          ].filter(Boolean).join('\n')
+          await mainWin.webContents.executeJavaScript(script)
           mainWin.webContents.send('app-shortkeyRefresh', shortkey)
           playerLog.info('Playlist changed via shortcut', shortkey)
         } catch (error) {
@@ -557,5 +574,6 @@ module.exports = {
   registerIpcHandlers,
   isValidAccelerator,
   formatDateTime,
-  closeAllMeetingWindows
+  closeAllMeetingWindows,
+  encodeLocalStorageJson
 }
