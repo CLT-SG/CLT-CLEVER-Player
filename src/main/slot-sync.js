@@ -3,6 +3,7 @@
 const ACTIONS = Object.freeze({
   NOOP: 'noop',
   RELOAD_LAYOUT: 'reload_layout',
+  LAYOUT_UPDATE: 'layout_update',
   SLOT_UPDATE: 'slot_update',
   PLAYLIST_UPDATE: 'playlist_update',
   CONTENT_UPDATE: 'content_update',
@@ -11,6 +12,7 @@ const ACTIONS = Object.freeze({
 })
 
 const INCREMENTAL_ACTIONS = Object.freeze([
+  ACTIONS.LAYOUT_UPDATE,
   ACTIONS.SLOT_UPDATE,
   ACTIONS.PLAYLIST_UPDATE,
   ACTIONS.CONTENT_UPDATE,
@@ -89,6 +91,7 @@ function normalizePayload(body) {
     action,
     template_id: source.template_id || source.templateId || source.id || null,
     layout_version: source.layout_version || null,
+    sync_version: source.sync_version || null,
     layout_changed: Boolean(source.layout_changed),
     content_id: source.content_id != null ? source.content_id : null,
     mute: Object.prototype.hasOwnProperty.call(source, 'mute') ? !!source.mute : undefined,
@@ -108,7 +111,17 @@ function normalizePayload(body) {
     slots,
     reason: source.reason || null,
     templateData: source.templateData,
-    pushed: source.pushed
+    pushed: source.pushed,
+    columns: source.columns != null ? Number(source.columns) : null,
+    rows: source.rows != null ? Number(source.rows) : null,
+    items: Array.isArray(source.items) ? source.items : null,
+    index_map: source.index_map && typeof source.index_map === 'object' ? source.index_map : {},
+    geometry_indexes: Array.isArray(source.geometry_indexes) ? source.geometry_indexes : [],
+    removed_indexes: Array.isArray(source.removed_indexes) ? source.removed_indexes : [],
+    preserve_by_slot_id: Boolean(source.preserve_by_slot_id),
+    origin: source.origin || null,
+    event_id: source.event_id || null,
+    timestamp: source.timestamp || null
   }
 }
 
@@ -154,6 +167,11 @@ function describeUpdate(payload) {
     return [`[INFO] Layout reload${templateId}`]
   }
 
+  if (payload.action === ACTIONS.LAYOUT_UPDATE) {
+    const remount = Array.isArray(payload.slots) ? payload.slots.length : 0
+    return [`[INFO] Layout region updated (preserving unaffected cells; remount=${remount})`]
+  }
+
   const slots = Array.isArray(payload.slots) && payload.slots.length > 0
     ? payload.slots
     : [{ slot: payload.slot, slot_id: payload.slot_id, index: payload.index, mode: payload.mode, reason: payload.reason }]
@@ -187,6 +205,10 @@ function shouldFallbackToReload(result, payload) {
     && (payload.action === ACTIONS.MUTE_UPDATE || payload.action === ACTIONS.OVERLAY_UPDATE)
   ) {
     return false
+  }
+  // layout_update may intentionally report fallback:true after dimension change.
+  if (result && result.fallback === true && payload && payload.action === ACTIONS.LAYOUT_UPDATE) {
+    return true
   }
   if (!result) {
     return true

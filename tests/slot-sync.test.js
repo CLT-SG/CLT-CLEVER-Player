@@ -52,6 +52,30 @@ describe('slot sync runtime patch engine', () => {
     assert.equal(isFullReload(payload), false)
   })
 
+  test('accepts layout_update as incremental structural patch', () => {
+    const payload = normalizePayload({
+      action: 'layout_update',
+      template_id: 20,
+      columns: 2,
+      rows: 2,
+      items: [
+        { slot: 10, gridArea: '1 / 1 / 2 / 3' },
+        { slot: 30, gridArea: '2 / 1 / 3 / 2' }
+      ],
+      geometry_indexes: [0],
+      slots: []
+    })
+    assert.equal(payload.action, ACTIONS.LAYOUT_UPDATE)
+    assert.equal(isIncremental(payload), true)
+    assert.equal(isFullReload(payload), false)
+    assert.equal(payload.columns, 2)
+    assert.equal(payload.items.length, 2)
+    assert.deepEqual(
+      describeUpdate(payload),
+      ['[INFO] Layout region updated (preserving unaffected cells; remount=0)']
+    )
+  })
+
   test('layout_changed on an incremental action does not force a layout reload', () => {
     const payload = normalizePayload({
       action: 'slot_update',
