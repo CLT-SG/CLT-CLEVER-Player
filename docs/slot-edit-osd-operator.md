@@ -13,6 +13,7 @@ CLEVER-Player hosts the Electron shell for Console and Video Wall. Interactive s
 - **Alt+O** is registered by CLEVER-Player and sends `app-toggleOsd` to the preview window.
 - This works while a Screencast/VNC `<webview>` has focus (unlike page-level key handlers alone).
 - Hover-to-show OSD was removed in CLEVER-Service so remote control is not interrupted.
+- Named preset shortkeys write layout JSON into `localStorage` via `encodeLocalStorageJson` (objects must not be coerced with `String(object)`). Service owns preset CRUD; Player only applies the stored layout payload.
 
 ## Push to Video Wall (Console)
 

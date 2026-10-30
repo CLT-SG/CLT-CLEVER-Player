@@ -274,16 +274,17 @@ function createApp() {
           }
         }
 
-        const encodedTemplate = JSON.stringify(String(templateData ?? ''))
+        const { encodeLocalStorageJson } = require('./src/main/local-storage-json')
+        const encodedTemplate = encodeLocalStorageJson(templateData)
         const slotsRaw = body.slotsList != null ? body.slotsList : body.slots
         const contentsRaw = body.contents
         const storeScript = [
           `window.localStorage.setItem("templateData", ${encodedTemplate});`,
           slotsRaw != null
-            ? `window.localStorage.setItem("slotsList", ${JSON.stringify(String(slotsRaw))});`
+            ? `window.localStorage.setItem("slotsList", ${encodeLocalStorageJson(slotsRaw)});`
             : '',
           contentsRaw != null
-            ? `window.localStorage.setItem("contents", ${JSON.stringify(String(contentsRaw))});`
+            ? `window.localStorage.setItem("contents", ${encodeLocalStorageJson(contentsRaw)});`
             : '',
           'true'
         ].filter(Boolean).join('\n')
