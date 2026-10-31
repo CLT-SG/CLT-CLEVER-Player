@@ -109,6 +109,16 @@ describe('slot sync runtime patch engine', () => {
     assert.equal(script.includes('loadURL'), false)
   })
 
+  test('full template push clears stale preview localStorage before reload', () => {
+    const fs = require('node:fs')
+    const path = require('node:path')
+    const routeSource = fs.readFileSync(path.join(__dirname, '..', 'route.js'), 'utf8')
+    assert.match(routeSource, /clearPreviewPlaybackStorage/)
+    assert.match(routeSource, /removeItem\('slotsList'\)/)
+    assert.match(routeSource, /removeItem\('contents'\)/)
+    assert.match(routeSource, /removeItem\('templateData'\)/)
+  })
+
   test('describes monitoring log lines for slot, playlist, and webcast updates', () => {
     assert.deepEqual(
       describeUpdate({ action: 'slot_update', slots: [{ slot: 'B' }] }),
