@@ -62,6 +62,31 @@ function previewUrl(config, templateId, pushed) {
   return url
 }
 
+/**
+ * Drop stale Console/template playback snapshots before a full layout reload.
+ * Otherwise preview Vuex rehydrates old slotsList/contents from localStorage and
+ * a WebCast cell can briefly (or stuck) show the previous playlist.
+ */
+async function clearPreviewPlaybackStorage() {
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    return
+  }
+  try {
+    await mainWindow.webContents.executeJavaScript(`(function () {
+      try {
+        window.localStorage.removeItem('slotsList');
+        window.localStorage.removeItem('contents');
+        window.localStorage.removeItem('templateData');
+        window.localStorage.removeItem('layoutSlots');
+      } catch (e) {}
+      return true;
+    })()`, true)
+  } catch (error) {
+    const { errorLog } = getLoggers()
+    errorLog.warn('Could not clear preview playback localStorage before reload', error)
+  }
+}
+
 function refitMainWindow() {
   if (!mainWindow || mainWindow.isDestroyed()) {
     return
@@ -93,6 +118,7 @@ async function reloadLayout(payload) {
   }
 
   if (config.ctrltype === 'videowall') {
+    await clearPreviewPlaybackStorage()
     await mainWindow.loadURL(previewUrl(config, safeId || config.tempid, Boolean(payload && payload.pushed)))
     refitMainWindow()
     playerLog.info('[INFO] Layout reload')
@@ -345,6 +371,7 @@ function createApp() {
         if (isIncremental(payload)) {
           await applyRuntimeUpdate(payload)
         } else {
+          await clearPreviewPlaybackStorage()
           await mainWindow.loadURL(previewUrl(refreshed, safeId, false))
           refitMainWindow()
           playerLog.info('Playlist changed', safeId)
